@@ -8,6 +8,9 @@
 </head>
 <body>
 
+<!-- STICKY TOP WRAPPER -->
+<div class="sticky-top">
+
 <!-- HEADER -->
 <header class="site-header">
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -23,6 +26,27 @@
   <h1>GitHub Developer Profile Analyzer <span>— análise técnica automatizada</span></h1>
 </header>
 
+<!-- STICKY RESULTS BAR -->
+<div id="sticky-results-bar" style="display:none">
+  <div class="sticky-bar-inner">
+    <div class="sticky-score-wrap">
+      <span id="sticky-score-num">--</span>
+      <span class="sticky-score-label">/100</span>
+    </div>
+    <div class="sticky-divider"></div>
+    <div id="sticky-seniority-wrap"></div>
+    <span id="sticky-title" class="sticky-title"></span>
+    <div class="sticky-spacer"></div>
+    <span class="exp-label" style="font-size:12px;white-space:nowrap">Exportar:</span>
+    <button class="btn-export btn-json" id="btn-json">⬇ JSON</button>
+    <button class="btn-export btn-csv" id="btn-csv">⬇ CSV</button>
+    <button class="btn-export btn-png" id="btn-png">⬇ PNG</button>
+    <button class="btn-export btn-reset" id="btn-reset">↩ Nova análise</button>
+  </div>
+</div>
+
+</div><!-- /.sticky-top -->
+
 <main class="container">
 
   <!-- FORM SECTION -->
@@ -30,6 +54,7 @@
     <div class="mode-tabs">
       <button class="mode-tab active" data-mode="repo">Repositório</button>
       <button class="mode-tab" data-mode="user">Perfil de Usuário</button>
+      <button class="mode-tab" data-mode="contributions">Contribuições</button>
     </div>
 
     <div class="input-row">
@@ -45,7 +70,14 @@
     </div>
 
     <div class="options-row">
-      <label><input type="checkbox" id="no-ai-chk" /> Sem IA (análise por regras)</label>
+      <label><input type="checkbox" id="com-ai-chk" /> Com IA</label>
+      <input
+        type="password"
+        id="anthropic-key-input"
+        placeholder="ANTHROPIC_API_KEY (obrigatório)"
+        style="width: 260px; display: none"
+        aria-label="Anthropic API Key"
+      />
       <input
         type="password"
         id="token-input"
@@ -115,14 +147,6 @@
       <div class="analysis-panel" id="analysis-panel"></div>
     </div>
 
-    <div class="export-bar">
-      <span class="exp-label">Exportar resultados:</span>
-      <button class="btn-export btn-json" id="btn-json" onclick="exportJson()">⬇ JSON</button>
-      <button class="btn-export btn-csv" id="btn-csv" onclick="exportCsv()">⬇ CSV</button>
-      <button class="btn-export btn-png" id="btn-png" onclick="exportPng()">⬇ PNG</button>
-      <span class="spacer"></span>
-      <button class="btn-export btn-reset" onclick="resetForm()">↩ Nova análise</button>
-    </div>
   </section>
 
 </main>

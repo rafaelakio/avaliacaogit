@@ -30,7 +30,7 @@ class AnalysisController {
   /**
    * Inicia uma análise
    */
-  async startAnalysis(mode, input, noAI, token, maxRepos) {
+  async startAnalysis(mode, input, noAI, token, maxRepos, anthropicKey = '') {
     if (!input.trim()) {
       document.getElementById('main-input').focus();
       return;
@@ -44,7 +44,7 @@ class AnalysisController {
       State.setMode(mode);
       State.reset();
 
-      const response = await APIClient.startAnalysis(mode, input.trim(), noAI, token, maxRepos);
+      const response = await APIClient.startAnalysis(mode, input.trim(), noAI, token, maxRepos, anthropicKey);
       State.setTaskId(response.task_id);
 
       this.startElapsedTimer();
@@ -188,12 +188,29 @@ class AnalysisController {
   /**
    * Renderiza todos os resultados
    */
+  updateStickyBar(result) {
+    const isUser = result.mode === 'user' || result.mode === 'contributions';
+    const title = isUser ? `@${result.owner}` : `${result.owner}/${result.repo}`;
+    const score = result.composite_score;
+    const color = score >= 70 ? 'var(--green)' : score >= 40 ? 'var(--yellow)' : 'var(--red)';
+
+    const scoreEl = document.getElementById('sticky-score-num');
+    scoreEl.textContent = score.toFixed(0);
+    scoreEl.style.color = color;
+
+    document.getElementById('sticky-title').textContent = title;
+    document.getElementById('sticky-seniority-wrap').innerHTML = Renderers.seniorityBadge(result.seniority);
+    document.getElementById('sticky-results-bar').style.display = 'block';
+  }
+
   renderResults(result) {
+    this.updateStickyBar(result);
+
     // Renderiza componentes
     document.getElementById('profile-header-card').innerHTML = Renderers.renderProfileHeader(result);
     document.getElementById('frameworks-section').innerHTML = Renderers.renderFrameworks(result);
 
-    if (result.mode === 'user' && result.repo_names && result.repo_names.length) {
+    if ((result.mode === 'user' || result.mode === 'contributions') && result.repo_names && result.repo_names.length) {
       document.getElementById('repo-list-section').innerHTML = Renderers.renderRepoList(result);
     } else {
       document.getElementById('repo-list-section').innerHTML = '';

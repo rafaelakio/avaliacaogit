@@ -61,17 +61,21 @@ class Renderers {
 
   // Main components
   static renderProfileHeader(result) {
-    const isUser = result.mode === 'user';
+    const isUser = result.mode === 'user' || result.mode === 'contributions';
     const title = isUser
       ? `${result.user_name} (@${result.owner})`
       : `${result.owner} / ${result.repo}`;
-    const sub = isUser
-      ? `${result.repos_analyzed} repos analisados · ${result.user_followers} seguidores`
-      : `${result.metrics.stars} ★  ${result.metrics.forks} forks`;
+    const sub = result.mode === 'contributions'
+      ? `${result.repos_analyzed} repos ativos recentes analisados · ${result.user_followers} seguidores`
+      : isUser
+        ? `${result.repos_analyzed} repos analisados · ${result.user_followers} seguidores`
+        : `${result.metrics.stars} ★  ${result.metrics.forks} forks`;
     const desc = isUser ? result.user_bio : result.description;
-    const avatar = isUser && result.user_avatar
-      ? `<img class="profile-avatar" src="${result.user_avatar}" alt="avatar"/>`
-      : '<div class="avatar-placeholder">👤</div>';
+    const avatarSrc = (isUser && result.user_avatar)
+      ? result.user_avatar
+      : `https://github.com/${result.owner}.png`;
+    const avatar = `<img class="profile-avatar" src="${avatarSrc}" alt="avatar"
+      onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'avatar-placeholder',textContent:'👤'}))" />`;
     const langs = result.languages
       .slice(0, 7)
       .map(l => `<span class="lang-pill">${l}</span>`)
@@ -117,6 +121,10 @@ class Renderers {
       return '';
     }
 
+    const title = result.mode === 'contributions'
+      ? 'Repositórios com Atividade Recente'
+      : 'Repositórios Analisados';
+
     const rows = result.repo_names
       .map(name => `
         <div class="repo-list-row">
@@ -130,7 +138,7 @@ class Renderers {
     return `
       <div class="repo-list-wrap">
         <div class="repo-list-head section-title" style="margin-bottom:0">
-          Repositórios Analisados
+          ${title}
         </div>
         ${rows}
       </div>

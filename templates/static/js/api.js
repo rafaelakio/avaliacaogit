@@ -6,15 +6,16 @@
  */
 
 class APIClient {
-  static async startAnalysis(mode, input, noAI, token, maxRepos) {
+  static async startAnalysis(mode, input, noAI, token, maxRepos, anthropicKey = '') {
     const body = {
       mode,
       no_ai: noAI,
       token: token || '',
       max_repos: maxRepos,
+      anthropic_api_key: anthropicKey || '',
     };
 
-    if (mode === 'user') {
+    if (mode === 'user' || mode === 'contributions') {
       body.user = input;
     } else {
       body.url = input;

@@ -375,6 +375,40 @@ class GitHubCollector:
             raise RuntimeError(f"Usuário '{username}' não encontrado no GitHub.")
         return info
 
+    def get_contributed_repos(self, username: str, max_repos: int = 10) -> list[dict]:
+        """Return repos where the user was recently active (events-based), own or external."""
+        seen_names: list[str] = []
+        seen_set: set[str] = set()
+
+        for page in range(1, 4):
+            events = self._get(
+                f"/users/{username}/events",
+                params={"per_page": 100, "page": page},
+            )
+            if not events:
+                break
+            for event in events:
+                if event.get("type") not in ("PushEvent", "PullRequestEvent", "CreateEvent", "IssueCommentEvent"):
+                    continue
+                repo_info = event.get("repo", {})
+                full_name = repo_info.get("name", "")
+                if not full_name or full_name in seen_set:
+                    continue
+                seen_set.add(full_name)
+                seen_names.append(full_name)
+            if len(seen_names) >= max_repos * 3:
+                break
+
+        result: list[dict] = []
+        for full_name in seen_names:
+            if len(result) >= max_repos:
+                break
+            repo_data = self._get(f"/repos/{full_name}")
+            if repo_data and not repo_data.get("archived"):
+                result.append(repo_data)
+
+        return sorted(result, key=lambda r: r.get("pushed_at") or "", reverse=True)
+
     def get_user_repos(self, username: str, max_repos: int = 10) -> list[dict]:
         """
         Return the user's most relevant repositories.

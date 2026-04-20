@@ -57,11 +57,11 @@ class App {
     const inp = document.getElementById('main-input');
     const maxG = document.getElementById('max-repos-group');
 
-    inp.placeholder = mode === 'user'
-      ? 'https://github.com/owner  ou  owner'
-      : 'https://github.com/owner/repo';
+    inp.placeholder = mode === 'repo'
+      ? 'https://github.com/owner/repo'
+      : 'https://github.com/owner  ou  owner';
 
-    maxG.style.display = mode === 'user' ? 'block' : 'none';
+    maxG.style.display = mode !== 'repo' ? 'block' : 'none';
   }
 
   /**
@@ -70,11 +70,16 @@ class App {
   bindFormEvents() {
     const mainInput = document.getElementById('main-input');
 
-    // Enter key
     mainInput.addEventListener('keydown', e => {
       if (e.key === 'Enter') {
         this.handleAnalyzeClick();
       }
+    });
+
+    document.getElementById('com-ai-chk').addEventListener('change', e => {
+      const keyInput = document.getElementById('anthropic-key-input');
+      keyInput.style.display = e.target.checked ? 'inline-block' : 'none';
+      if (!e.target.checked) keyInput.value = '';
     });
   }
 
@@ -92,6 +97,10 @@ class App {
 
     document.getElementById('btn-png').addEventListener('click', () => {
       this.analysis.exportPng(State.currentTaskId);
+    });
+
+    document.getElementById('btn-reset').addEventListener('click', () => {
+      this.resetForm();
     });
   }
 
@@ -114,11 +123,17 @@ class App {
   startAnalysis() {
     const mode = State.currentMode;
     const input = document.getElementById('main-input').value;
-    const noAI = document.getElementById('no-ai-chk').checked;
+    const useAI = document.getElementById('com-ai-chk').checked;
+    const anthropicKey = document.getElementById('anthropic-key-input').value.trim();
     const token = document.getElementById('token-input').value;
     const maxRepos = parseInt(document.getElementById('max-repos-input').value) || 8;
 
-    this.analysis.startAnalysis(mode, input, noAI, token, maxRepos);
+    if (useAI && !anthropicKey) {
+      document.getElementById('anthropic-key-input').focus();
+      return;
+    }
+
+    this.analysis.startAnalysis(mode, input, !useAI, token, maxRepos, anthropicKey);
   }
 
   /**
@@ -127,7 +142,11 @@ class App {
   resetForm() {
     document.getElementById('main-input').value = '';
     document.getElementById('token-input').value = '';
-    document.getElementById('no-ai-chk').checked = false;
+    document.getElementById('com-ai-chk').checked = false;
+    const keyInput = document.getElementById('anthropic-key-input');
+    keyInput.value = '';
+    keyInput.style.display = 'none';
+    document.getElementById('sticky-results-bar').style.display = 'none';
     this.analysis.resetForm();
   }
 }

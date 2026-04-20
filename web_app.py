@@ -72,7 +72,7 @@ def _serialize(result, textual, user_info=None, mode="repo") -> dict:
             "used_ai": textual.used_ai,
         },
     }
-    if mode == "user":
+    if mode in ("user", "contributions"):
         info = user_info or {}
         data.update({
             "user_name": info.get("name") or result.owner,
@@ -85,7 +85,7 @@ def _serialize(result, textual, user_info=None, mode="repo") -> dict:
     return data
 
 
-def _run_repo_task(task_id: str, url: str, no_ai: bool, token: str) -> None:
+def _run_repo_task(task_id: str, url: str, no_ai: bool, token: str, anthropic_api_key: str = "") -> None:
     try:
         from src.collector import GitHubCollector, parse_github_url
         from src.analyzer import MetricsAnalyzer
@@ -106,7 +106,7 @@ def _run_repo_task(task_id: str, url: str, no_ai: bool, token: str) -> None:
         result = MetricsAnalyzer().analyze(repo_data)
 
         _set_progress(task_id, "Gerando análise textual...")
-        ai = AIAnalyzer(api_key="" if no_ai else None)
+        ai = AIAnalyzer(api_key="" if no_ai else (anthropic_api_key or None))
         textual = ai.analyze(result)
 
         tasks[task_id] = {"status": "done", "result": _serialize(result, textual, mode="repo")}
@@ -114,7 +114,7 @@ def _run_repo_task(task_id: str, url: str, no_ai: bool, token: str) -> None:
         tasks[task_id] = {"status": "error", "message": str(e)}
 
 
-def _run_user_task(task_id: str, user_input: str, max_repos: int, no_ai: bool, token: str) -> None:
+def _run_user_task(task_id: str, user_input: str, max_repos: int, no_ai: bool, token: str, anthropic_api_key: str = "") -> None:
     try:
         from src.collector import GitHubCollector, parse_user_url
         from src.analyzer import MetricsAnalyzer, aggregate_results
@@ -159,12 +159,69 @@ def _run_user_task(task_id: str, user_input: str, max_repos: int, no_ai: bool, t
         agg = aggregate_results(results, username, user_info)
 
         _set_progress(task_id, "Gerando análise textual...")
-        ai = AIAnalyzer(api_key="" if no_ai else None)
+        ai = AIAnalyzer(api_key="" if no_ai else (anthropic_api_key or None))
         textual = ai.analyze(agg)
 
         tasks[task_id] = {
             "status": "done",
             "result": _serialize(agg, textual, user_info=user_info, mode="user"),
+            "failed_repos": failed,
+        }
+    except Exception as e:
+        tasks[task_id] = {"status": "error", "message": str(e)}
+
+
+def _run_contributions_task(task_id: str, user_input: str, max_repos: int, no_ai: bool, token: str, anthropic_api_key: str = "") -> None:
+    try:
+        from src.collector import GitHubCollector, parse_user_url
+        from src.analyzer import MetricsAnalyzer, aggregate_results
+        from src.ai_analyzer import AIAnalyzer
+
+        _set_progress(task_id, "Validando usuário...")
+        username = parse_user_url(user_input)
+
+        _set_progress(task_id, f"Buscando atividade recente de @{username} via eventos...")
+        collector = GitHubCollector(token=token)
+        user_info = collector.get_user_info(username)
+        repos = collector.get_contributed_repos(username, max_repos=max_repos)
+
+        if not repos:
+            tasks[task_id] = {
+                "status": "error",
+                "message": f"Nenhuma atividade recente encontrada para @{username}. O usuário pode não ter eventos públicos nos últimos 90 dias.",
+            }
+            return
+
+        analyzer = MetricsAnalyzer()
+        results = []
+        failed = 0
+
+        for i, repo in enumerate(repos, 1):
+            full_name = repo["full_name"]
+            _set_progress(task_id, f"[{i}/{len(repos)}] Analisando {full_name}...")
+            try:
+                repo_data = collector.collect_all(f"https://github.com/{full_name}")
+                if repo_data.error:
+                    failed += 1
+                else:
+                    results.append(analyzer.analyze(repo_data))
+            except Exception:
+                failed += 1
+
+        if not results:
+            tasks[task_id] = {"status": "error", "message": "Não foi possível analisar nenhum repositório de contribuição."}
+            return
+
+        _set_progress(task_id, f"Agregando perfil de {len(results)} repositórios ativos...")
+        agg = aggregate_results(results, username, user_info)
+
+        _set_progress(task_id, "Gerando análise textual...")
+        ai = AIAnalyzer(api_key="" if no_ai else (anthropic_api_key or None))
+        textual = ai.analyze(agg)
+
+        tasks[task_id] = {
+            "status": "done",
+            "result": _serialize(agg, textual, user_info=user_info, mode="contributions"),
             "failed_repos": failed,
         }
     except Exception as e:
@@ -180,9 +237,10 @@ def index():
 def analyze():
     body = request.get_json(force=True) or {}
     mode = body.get("mode", "repo")
-    no_ai = bool(body.get("no_ai", False))
+    no_ai = bool(body.get("no_ai", True))
     token = body.get("token") or os.getenv("GITHUB_TOKEN", "")
     max_repos = min(int(body.get("max_repos", 8)), 30)
+    anthropic_api_key = body.get("anthropic_api_key") or ""
 
     task_id = str(uuid.uuid4())
     tasks[task_id] = {"status": "running", "progress": "Iniciando..."}
@@ -190,13 +248,19 @@ def analyze():
     if mode == "user":
         t = threading.Thread(
             target=_run_user_task,
-            args=(task_id, body.get("user", ""), max_repos, no_ai, token),
+            args=(task_id, body.get("user", ""), max_repos, no_ai, token, anthropic_api_key),
+            daemon=True,
+        )
+    elif mode == "contributions":
+        t = threading.Thread(
+            target=_run_contributions_task,
+            args=(task_id, body.get("user", ""), max_repos, no_ai, token, anthropic_api_key),
             daemon=True,
         )
     else:
         t = threading.Thread(
             target=_run_repo_task,
-            args=(task_id, body.get("url", ""), no_ai, token),
+            args=(task_id, body.get("url", ""), no_ai, token, anthropic_api_key),
             daemon=True,
         )
     t.start()
