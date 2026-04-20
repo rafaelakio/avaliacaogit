@@ -1,26 +1,18 @@
 /**
  * Exports Module
- * Responsabilidade: lógica de exportação de dados
- * - exportar para JSON
- * - exportar para CSV
- * - exportar para PNG
  */
 
 class ExportManager {
-  static async exportJson(taskId) {
-    const url = `/api/export/${taskId}/json`;
-    window.location.href = url;
+  static exportJson(taskId) {
+    if (taskId) window.location.href = `/api/export/${taskId}/json`;
   }
 
-  static async exportCsv(taskId) {
-    const url = `/api/export/${taskId}/csv`;
-    window.location.href = url;
+  static exportCsv(taskId) {
+    if (taskId) window.location.href = `/api/export/${taskId}/csv`;
   }
 
-  static async exportPng(taskId) {
-    const captureArea = document.getElementById('capture-area');
-    const button = document.getElementById('btn-png');
-
+  static async exportPng(tabId, button) {
+    const captureArea = document.getElementById(`capture-${tabId}`);
     if (!captureArea) return;
 
     if (typeof html2canvas === 'undefined') {
@@ -40,9 +32,8 @@ class ExportManager {
         logging: false,
         allowTaint: true,
       });
-
       const link = document.createElement('a');
-      link.download = 'analysis.png';
+      link.download = `analysis-${tabId}.png`;
       link.href = canvas.toDataURL('image/png');
       link.click();
     } catch (error) {

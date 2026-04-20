@@ -8,9 +8,6 @@
 </head>
 <body>
 
-<!-- STICKY TOP WRAPPER -->
-<div class="sticky-top">
-
 <!-- HEADER -->
 <header class="site-header">
   <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
@@ -24,116 +21,418 @@
       0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
   </svg>
   <h1>GitHub Developer Profile Analyzer <span>— análise técnica automatizada</span></h1>
+  <button class="btn-rules" onclick="document.getElementById('rules-modal').style.display='flex'" title="Ver critérios de análise">
+    ℹ Critérios
+  </button>
 </header>
 
-<!-- STICKY RESULTS BAR -->
-<div id="sticky-results-bar" style="display:none">
-  <div class="sticky-bar-inner">
-    <div class="sticky-score-wrap">
-      <span id="sticky-score-num">--</span>
-      <span class="sticky-score-label">/100</span>
+<!-- RULES MODAL -->
+<div id="rules-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,.55); z-index:9999; align-items:center; justify-content:center; padding:16px" onclick="if(event.target===this)this.style.display='none'">
+  <div class="rules-modal-box">
+    <div class="rules-modal-header">
+      <h2>Critérios e Ponderações da Análise</h2>
+      <button class="rules-close" onclick="document.getElementById('rules-modal').style.display='none'">✕</button>
     </div>
-    <div class="sticky-divider"></div>
-    <div id="sticky-seniority-wrap"></div>
-    <span id="sticky-title" class="sticky-title"></span>
-    <div class="sticky-spacer"></div>
-    <span class="exp-label" style="font-size:12px;white-space:nowrap">Exportar:</span>
-    <button class="btn-export btn-json" id="btn-json">⬇ JSON</button>
-    <button class="btn-export btn-csv" id="btn-csv">⬇ CSV</button>
-    <button class="btn-export btn-png" id="btn-png">⬇ PNG</button>
-    <button class="btn-export btn-reset" id="btn-reset">↩ Nova análise</button>
+    <div class="rules-modal-body">
+
+      <p class="rules-intro">
+        O <strong>score composto</strong> (0–100) é calculado como média ponderada de 8 dimensões.
+        Cada dimensão é pontuada de 0 a 100 e multiplicada pelo seu peso.
+      </p>
+
+      <div class="rules-section">
+        <div class="rules-section-title">Níveis de Senioridade</div>
+        <table class="rules-table">
+          <thead><tr><th>Nível</th><th>Score Composto</th></tr></thead>
+          <tbody>
+            <tr><td>🟢 Senior</td><td>≥ 60</td></tr>
+            <tr><td>🟡 Mid-level</td><td>35 – 59</td></tr>
+            <tr><td>🔴 Junior</td><td>&lt; 35</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="rules-section">
+        <div class="rules-section-title">Dimensões e Pesos</div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Commit Quality</span><span class="rules-dim-weight">Peso: 20%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>Conventional commits ratio × 40</td><td>0 – 40</td></tr>
+              <tr><td>Tamanho médio da mensagem ≥ 50 chars</td><td>+30</td></tr>
+              <tr><td>Tamanho médio da mensagem ≥ 20 chars</td><td>+15</td></tr>
+              <tr><td>Tamanho médio da mensagem &lt; 20 chars</td><td>+5</td></tr>
+              <tr><td>Ratio de commits WIP &lt; 10%</td><td>+20</td></tr>
+              <tr><td>Ratio de commits WIP &lt; 30%</td><td>+10</td></tr>
+              <tr><td>≥ 20 commits amostrados</td><td>+10</td></tr>
+            </tbody>
+          </table>
+          <p class="rules-note">Padrão Conventional Commits: <code>feat|fix|docs|style|refactor|test|chore|perf|ci|build|revert</code>. WIP: mensagens iniciando com <em>wip, fix, temp, test, update, change, edit, commit, done</em>.</p>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Testing</span><span class="rules-dim-weight">Peso: 18%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>Arquivos de teste detectados</td><td>+50</td></tr>
+              <tr><td>≥ 10 arquivos de teste</td><td>+30</td></tr>
+              <tr><td>3 – 9 arquivos de teste</td><td>+20</td></tr>
+              <tr><td>1 – 2 arquivos de teste</td><td>+10</td></tr>
+              <tr><td>Framework de teste detectado (pytest, jest, mocha, vitest, junit, rspec, testify)</td><td>+20</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">CI/CD &amp; Automation</span><span class="rules-dim-weight">Peso: 12%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>CI/CD configurado (.github/workflows, .travis.yml, Jenkinsfile, etc.)</td><td>+60</td></tr>
+              <tr><td>Dockerfile presente</td><td>+25</td></tr>
+              <tr><td>≥ 2 sistemas de CI/CD distintos</td><td>+15</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Documentation Quality</span><span class="rules-dim-weight">Peso: 12%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>README abrangente (&gt; 5 000 chars)</td><td>+70</td></tr>
+              <tr><td>README bom (1 500 – 5 000 chars)</td><td>+55</td></tr>
+              <tr><td>README básico (300 – 1 500 chars)</td><td>+30</td></tr>
+              <tr><td>README mínimo (&lt; 300 chars)</td><td>+10</td></tr>
+              <tr><td>Arquivo CONTRIBUTING</td><td>+15</td></tr>
+              <tr><td>Arquivo CHANGELOG</td><td>+10</td></tr>
+              <tr><td>Arquivo LICENSE</td><td>+5</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Project Structure</span><span class="rules-dim-weight">Peso: 12%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>Estrutura bem organizada (≥ 5 dirs significativos)</td><td>90</td></tr>
+              <tr><td>Estrutura organizada (3 – 4 dirs)</td><td>65</td></tr>
+              <tr><td>Estrutura básica (1 – 2 dirs)</td><td>35</td></tr>
+              <tr><td>Estrutura plana (sem dirs)</td><td>10</td></tr>
+              <tr><td>.gitignore presente</td><td>+10</td></tr>
+            </tbody>
+          </table>
+          <p class="rules-note">Diretórios excluídos da contagem: <code>.git, .github, node_modules, .venv, venv, __pycache__, .idea, .vscode</code>.</p>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Framework &amp; Tooling</span><span class="rules-dim-weight">Peso: 10%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>Qtd. de frameworks × 8 (máx. 50)</td><td>0 – 50</td></tr>
+              <tr><td>Ferramenta de linting detectada (eslint, prettier, black, ruff, mypy, flake8, pylint)</td><td>+25</td></tr>
+              <tr><td>Arquivo de dependências presente</td><td>+15</td></tr>
+              <tr><td>Topics definidos no repositório</td><td>+10</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">PR Workflow</span><span class="rules-dim-weight">Peso: 8%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>≥ 20 PRs (abertos + fechados + mergeados)</td><td>+60</td></tr>
+              <tr><td>5 – 19 PRs</td><td>+40</td></tr>
+              <tr><td>1 – 4 PRs</td><td>+20</td></tr>
+              <tr><td>≥ 3 branches</td><td>+25</td></tr>
+              <tr><td>2 branches</td><td>+10</td></tr>
+              <tr><td>Taxa de merge &gt; 50%</td><td>+15</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rules-dim">
+          <div class="rules-dim-header"><span class="rules-dim-name">Issue Tracking</span><span class="rules-dim-weight">Peso: 8%</span></div>
+          <table class="rules-table">
+            <thead><tr><th>Critério</th><th>Pontos</th></tr></thead>
+            <tbody>
+              <tr><td>≥ 20 issues (abertas + fechadas)</td><td>+60</td></tr>
+              <tr><td>5 – 19 issues</td><td>+40</td></tr>
+              <tr><td>1 – 4 issues</td><td>+20</td></tr>
+              <tr><td>Taxa de resolução &gt; 50%</td><td>+40</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+      </div>
+
+      <div class="rules-section">
+        <div class="rules-section-title">Complexidade do Projeto</div>
+        <table class="rules-table">
+          <thead><tr><th>Nível</th><th>Média das dimensões</th></tr></thead>
+          <tbody>
+            <tr><td>Alta</td><td>≥ 65</td></tr>
+            <tr><td>Média</td><td>35 – 64</td></tr>
+            <tr><td>Baixa</td><td>&lt; 35</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+    </div>
   </div>
 </div>
 
-</div><!-- /.sticky-top -->
-
 <main class="container">
 
-  <!-- FORM SECTION -->
-  <section class="form-card" id="form-section">
-    <div class="mode-tabs">
-      <button class="mode-tab active" data-mode="repo">Repositório</button>
-      <button class="mode-tab" data-mode="user">Perfil de Usuário</button>
-      <button class="mode-tab" data-mode="contributions">Contribuições</button>
-      <button class="mode-tab" data-mode="prefix">Por Prefixo</button>
-    </div>
+  <!-- TAB NAVIGATION -->
+  <div class="tab-nav-bar">
+    <button class="tab-btn active" data-tab="repo">Repositório</button>
+    <button class="tab-btn" data-tab="user">Perfil de Usuário</button>
+    <button class="tab-btn" data-tab="contributions">Contribuições</button>
+    <button class="tab-btn" data-tab="prefix">Por Prefixo</button>
+  </div>
 
-    <div class="input-row">
-      <input
-        id="main-input"
-        type="text"
-        placeholder="https://github.com/owner/repo"
-        autocomplete="off"
-        spellcheck="false"
-        aria-label="GitHub URL or path"
-      />
-      <button class="btn-primary" id="analyze-btn" onclick="startAnalysis()">Analisar</button>
-    </div>
-
-    <div class="options-row">
-      <label><input type="checkbox" id="com-ai-chk" /> Com IA</label>
-      <input
-        type="password"
-        id="anthropic-key-input"
-        placeholder="ANTHROPIC_API_KEY (obrigatório)"
-        style="width: 260px; display: none"
-        aria-label="Anthropic API Key"
-      />
-      <input
-        type="password"
-        id="token-input"
-        placeholder="GitHub Token (opcional)"
-        style="width: 220px"
-        aria-label="GitHub Token"
-      />
-      <div id="max-repos-group">
-        <label style="color: var(--muted); font-size: 13px">
-          Max repos: <input type="number" id="max-repos-input" value="8" min="1" max="30" />
-        </label>
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB: REPOSITÓRIO                                         -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-repo">
+    <div class="form-card">
+      <div class="input-row">
+        <input id="input-repo" type="text" placeholder="https://github.com/owner/repo"
+               autocomplete="off" spellcheck="false" aria-label="URL do repositório"/>
+        <button class="btn-primary" id="btn-analyze-repo">Analisar</button>
+      </div>
+      <div class="options-row">
+        <label><input type="checkbox" class="ai-chk" id="ai-repo"/> Com IA</label>
+        <input type="password" class="anthropic-key" id="apikey-repo"
+               placeholder="ANTHROPIC_API_KEY (obrigatório)" style="width:260px;display:none"/>
+        <input type="password" class="token-inp" id="token-repo"
+               placeholder="GitHub Token (opcional)" style="width:220px"/>
       </div>
     </div>
-  </section>
 
-  <!-- LOADING SECTION -->
-  <section id="loading-section" style="display: none">
-    <div class="loading-card">
+    <div class="loading-card" id="loading-repo" style="display:none">
       <div class="loading-top">
         <div class="spinner-large"></div>
         <div class="loading-info">
-          <div id="progress-text">Iniciando<span class="dots"></span></div>
-          <div id="elapsed-display">0 segundos decorridos</div>
+          <div id="progress-repo">Iniciando<span class="dots"></span></div>
+          <div id="elapsed-repo">0 segundos decorridos</div>
         </div>
       </div>
-
-      <div class="step-track" id="step-track">
-        <div class="step-item" id="step-0">Conectando</div>
-        <div class="step-item" id="step-1">Coletando dados</div>
-        <div class="step-item" id="step-2">Analisando commits</div>
-        <div class="step-item" id="step-3">Calculando score</div>
-        <div class="step-item" id="step-4">Análise textual</div>
+      <div class="step-track">
+        <div class="step-item" id="step-repo-0">Conectando</div>
+        <div class="step-item" id="step-repo-1">Coletando dados</div>
+        <div class="step-item" id="step-repo-2">Analisando commits</div>
+        <div class="step-item" id="step-repo-3">Calculando score</div>
+        <div class="step-item" id="step-repo-4">Análise textual</div>
       </div>
+      <div class="loading-note">A análise faz múltiplas chamadas à API e pode levar <strong>1 a 3 minutos</strong>.</div>
+    </div>
 
-      <div class="loading-note">
-        A análise faz múltiplas chamadas à API do GitHub e pode levar <strong>1 a 3 minutos</strong>.
-        Os logs de <code style="font-size: 11px; color: var(--blue)">/api/status</code> a cada segundo confirmam que está funcionando.
+    <div class="error-card" id="error-repo" style="display:none">
+      <strong>Erro na análise</strong>
+      <span class="error-msg"></span>
+    </div>
+
+    <section class="results-area" id="results-repo" style="display:none">
+      <div class="results-toolbar">
+        <button class="btn-export btn-json" id="btn-json-repo">⬇ JSON</button>
+        <button class="btn-export btn-csv"  id="btn-csv-repo">⬇ CSV</button>
+        <button class="btn-export btn-png"  id="btn-png-repo">⬇ PNG</button>
+        <button class="btn-export btn-clear-result" id="btn-clear-repo">🗑 Limpar</button>
+      </div>
+      <div id="capture-repo" style="background:var(--bg);padding:4px 0">
+        <div id="profile-header-repo"></div>
+        <div id="frameworks-repo"></div>
+        <div id="repo-list-repo"></div>
+        <div style="margin-bottom:16px">
+          <div class="section-title">Métricas</div>
+          <div class="metrics-grid" id="metrics-grid-repo"></div>
+        </div>
+        <div class="score-breakdown">
+          <div class="section-title">Detalhamento do Score</div>
+          <div id="dim-rows-repo"></div>
+        </div>
+        <div class="analysis-panel" id="analysis-panel-repo"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB: PERFIL DE USUÁRIO                                   -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-user" style="display:none">
+    <div class="form-card">
+      <div class="input-row">
+        <input id="input-user" type="text" placeholder="https://github.com/owner  ou  owner"
+               autocomplete="off" spellcheck="false" aria-label="Usuário GitHub"/>
+        <button class="btn-primary" id="btn-analyze-user">Analisar</button>
+      </div>
+      <div class="options-row">
+        <label><input type="checkbox" class="ai-chk" id="ai-user"/> Com IA</label>
+        <input type="password" class="anthropic-key" id="apikey-user"
+               placeholder="ANTHROPIC_API_KEY (obrigatório)" style="width:260px;display:none"/>
+        <input type="password" class="token-inp" id="token-user"
+               placeholder="GitHub Token (opcional)" style="width:220px"/>
+        <label style="color:var(--muted);font-size:13px">
+          Max repos: <input type="number" class="max-repos-inp" id="maxr-user" value="8" min="1" max="30"/>
+        </label>
       </div>
     </div>
-  </section>
 
-  <!-- PREFIX RESULTS SECTION -->
-  <section id="prefix-section" style="display: none">
-    <div class="form-card" style="margin-top: 16px">
-      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px">
-        <span id="prefix-summary" style="color:var(--muted); font-size:13px"></span>
-        <div style="display:flex; gap:8px">
-          <button class="btn-export btn-json" id="btn-prefix-csv">⬇ CSV</button>
-          <button class="btn-export btn-reset" id="btn-prefix-reset">↩ Nova busca</button>
+    <div class="loading-card" id="loading-user" style="display:none">
+      <div class="loading-top">
+        <div class="spinner-large"></div>
+        <div class="loading-info">
+          <div id="progress-user">Iniciando<span class="dots"></span></div>
+          <div id="elapsed-user">0 segundos decorridos</div>
         </div>
       </div>
+      <div class="step-track">
+        <div class="step-item" id="step-user-0">Conectando</div>
+        <div class="step-item" id="step-user-1">Coletando dados</div>
+        <div class="step-item" id="step-user-2">Analisando commits</div>
+        <div class="step-item" id="step-user-3">Calculando score</div>
+        <div class="step-item" id="step-user-4">Análise textual</div>
+      </div>
+      <div class="loading-note">A análise faz múltiplas chamadas à API e pode levar <strong>1 a 3 minutos</strong>.</div>
+    </div>
+
+    <div class="error-card" id="error-user" style="display:none">
+      <strong>Erro na análise</strong>
+      <span class="error-msg"></span>
+    </div>
+
+    <section class="results-area" id="results-user" style="display:none">
+      <div class="results-toolbar">
+        <button class="btn-export btn-json" id="btn-json-user">⬇ JSON</button>
+        <button class="btn-export btn-csv"  id="btn-csv-user">⬇ CSV</button>
+        <button class="btn-export btn-png"  id="btn-png-user">⬇ PNG</button>
+        <button class="btn-export btn-clear-result" id="btn-clear-user">🗑 Limpar</button>
+      </div>
+      <div id="capture-user" style="background:var(--bg);padding:4px 0">
+        <div id="profile-header-user"></div>
+        <div id="frameworks-user"></div>
+        <div id="repo-list-user"></div>
+        <div style="margin-bottom:16px">
+          <div class="section-title">Métricas</div>
+          <div class="metrics-grid" id="metrics-grid-user"></div>
+        </div>
+        <div class="score-breakdown">
+          <div class="section-title">Detalhamento do Score</div>
+          <div id="dim-rows-user"></div>
+        </div>
+        <div class="analysis-panel" id="analysis-panel-user"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB: CONTRIBUIÇÕES                                       -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-contributions" style="display:none">
+    <div class="form-card">
+      <div class="input-row">
+        <input id="input-contributions" type="text" placeholder="https://github.com/owner  ou  owner"
+               autocomplete="off" spellcheck="false" aria-label="Usuário GitHub"/>
+        <button class="btn-primary" id="btn-analyze-contributions">Analisar</button>
+      </div>
+      <div class="options-row">
+        <label><input type="checkbox" class="ai-chk" id="ai-contributions"/> Com IA</label>
+        <input type="password" class="anthropic-key" id="apikey-contributions"
+               placeholder="ANTHROPIC_API_KEY (obrigatório)" style="width:260px;display:none"/>
+        <input type="password" class="token-inp" id="token-contributions"
+               placeholder="GitHub Token (opcional)" style="width:220px"/>
+        <label style="color:var(--muted);font-size:13px">
+          Max repos: <input type="number" class="max-repos-inp" id="maxr-contributions" value="8" min="1" max="30"/>
+        </label>
+      </div>
+    </div>
+
+    <div class="loading-card" id="loading-contributions" style="display:none">
+      <div class="loading-top">
+        <div class="spinner-large"></div>
+        <div class="loading-info">
+          <div id="progress-contributions">Iniciando<span class="dots"></span></div>
+          <div id="elapsed-contributions">0 segundos decorridos</div>
+        </div>
+      </div>
+      <div class="step-track">
+        <div class="step-item" id="step-contributions-0">Conectando</div>
+        <div class="step-item" id="step-contributions-1">Coletando dados</div>
+        <div class="step-item" id="step-contributions-2">Analisando commits</div>
+        <div class="step-item" id="step-contributions-3">Calculando score</div>
+        <div class="step-item" id="step-contributions-4">Análise textual</div>
+      </div>
+      <div class="loading-note">A análise faz múltiplas chamadas à API e pode levar <strong>1 a 3 minutos</strong>.</div>
+    </div>
+
+    <div class="error-card" id="error-contributions" style="display:none">
+      <strong>Erro na análise</strong>
+      <span class="error-msg"></span>
+    </div>
+
+    <section class="results-area" id="results-contributions" style="display:none">
+      <div class="results-toolbar">
+        <button class="btn-export btn-json" id="btn-json-contributions">⬇ JSON</button>
+        <button class="btn-export btn-csv"  id="btn-csv-contributions">⬇ CSV</button>
+        <button class="btn-export btn-png"  id="btn-png-contributions">⬇ PNG</button>
+        <button class="btn-export btn-clear-result" id="btn-clear-contributions">🗑 Limpar</button>
+      </div>
+      <div id="capture-contributions" style="background:var(--bg);padding:4px 0">
+        <div id="profile-header-contributions"></div>
+        <div id="frameworks-contributions"></div>
+        <div id="repo-list-contributions"></div>
+        <div style="margin-bottom:16px">
+          <div class="section-title">Métricas</div>
+          <div class="metrics-grid" id="metrics-grid-contributions"></div>
+        </div>
+        <div class="score-breakdown">
+          <div class="section-title">Detalhamento do Score</div>
+          <div id="dim-rows-contributions"></div>
+        </div>
+        <div class="analysis-panel" id="analysis-panel-contributions"></div>
+      </div>
+    </section>
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <!-- TAB: POR PREFIXO                                         -->
+  <!-- ═══════════════════════════════════════════════════════ -->
+  <div class="tab-panel" id="tab-prefix" style="display:none">
+    <div class="form-card">
+      <div class="input-row">
+        <input id="input-prefix" type="text" placeholder="Prefixo do repositório (ex: poc-)"
+               autocomplete="off" spellcheck="false" aria-label="Prefixo"/>
+        <button class="btn-primary" id="btn-analyze-prefix">Buscar</button>
+      </div>
+      <div class="options-row">
+        <input type="password" class="token-inp" id="token-prefix"
+               placeholder="GitHub Token (opcional)" style="width:220px"/>
+      </div>
+    </div>
+
+    <div class="error-card" id="error-prefix" style="display:none">
+      <strong>Erro na busca</strong>
+      <span class="error-msg"></span>
+    </div>
+
+    <section class="results-area" id="results-prefix" style="display:none">
+      <div class="results-toolbar">
+        <span id="prefix-summary" style="color:var(--muted);font-size:13px;flex:1"></span>
+        <button class="btn-export btn-csv" id="btn-csv-prefix">⬇ CSV</button>
+        <button class="btn-export btn-clear-result" id="btn-clear-prefix">🗑 Limpar</button>
+      </div>
       <div style="overflow-x:auto">
-        <table id="prefix-table" style="width:100%; border-collapse:collapse; font-size:13px">
+        <table style="width:100%;border-collapse:collapse;font-size:13px">
           <thead>
-            <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--muted)">
+            <tr style="border-bottom:1px solid var(--border);text-align:left;color:var(--muted)">
               <th style="padding:8px 12px">Repositório</th>
               <th style="padding:8px 12px">Proprietário</th>
               <th style="padding:8px 12px">Última atualização</th>
@@ -144,43 +443,18 @@
           <tbody id="prefix-table-body"></tbody>
         </table>
       </div>
-    </div>
-  </section>
-
-  <!-- ERROR SECTION -->
-  <section id="error-section" style="display: none">
-    <div class="error-card">
-      <strong>Erro na análise</strong>
-      <span id="error-msg"></span>
-    </div>
-  </section>
-
-  <!-- RESULTS SECTION -->
-  <section id="results-section" style="display: none">
-    <div id="capture-area" style="background: var(--bg); padding: 4px 0">
-      <div id="profile-header-card"></div>
-      <div id="frameworks-section"></div>
-      <div id="repo-list-section"></div>
-
-      <div id="metrics-section" style="margin-bottom: 16px">
-        <div class="section-title">Métricas</div>
-        <div class="metrics-grid" id="metrics-grid"></div>
-      </div>
-
-      <div class="score-breakdown" id="score-breakdown">
-        <div class="section-title">Detalhamento do Score</div>
-        <div id="dim-rows"></div>
-      </div>
-
-      <div class="analysis-panel" id="analysis-panel"></div>
-    </div>
-
-  </section>
+    </section>
+  </div>
 
 </main>
 
 <!-- External libraries -->
 <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape') document.getElementById('rules-modal').style.display = 'none';
+  });
+</script>
 
 <!-- Application modules -->
 <script type="module" src="/static/js/app.js"></script>
