@@ -387,7 +387,11 @@ class GitHubCollector:
         return info
 
     def get_contributed_repos(self, username: str, max_repos: int = 10) -> list[dict]:
-        """Return repos where the user was recently active (events-based), own or external."""
+        """Return repos where the user was recently active (events-based), own or external.
+
+        Falls back to owned repos when events are unavailable (e.g. private org repos
+        in enterprise environments where the token lacks read:org / read:user scope).
+        """
         seen_names: list[str] = []
         seen_set: set[str] = set()
 
@@ -417,6 +421,16 @@ class GitHubCollector:
             repo_data = self._get(f"/repos/{full_name}")
             if repo_data and not repo_data.get("archived"):
                 result.append(repo_data)
+
+        # Fallback: events API returned nothing (private org repos in enterprise)
+        # Try fetching repos the user owns or has push access to
+        if not result:
+            owned = self._get(
+                f"/users/{username}/repos",
+                params={"type": "owner", "sort": "pushed", "per_page": max_repos, "affiliation": "owner,collaborator,organization_member"},
+            )
+            if owned and isinstance(owned, list):
+                result = [r for r in owned if not r.get("archived")][:max_repos]
 
         return sorted(result, key=lambda r: r.get("pushed_at") or "", reverse=True)
 

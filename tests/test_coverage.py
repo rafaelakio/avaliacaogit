@@ -728,8 +728,9 @@ class TestParseGithubUrlExtra:
             parse_github_url("https://github.com/octocat")
 
     def test_non_github_domain(self):
+        # Enterprise hostnames are now accepted; plain non-URL strings still raise
         with pytest.raises(ValueError):
-            parse_github_url("https://gitlab.com/owner/repo")
+            parse_github_url("not-a-url")
 
 
 class TestParseUserUrlExtra:

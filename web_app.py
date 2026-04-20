@@ -189,7 +189,12 @@ def _run_contributions_task(task_id: str, user_input: str, max_repos: int, no_ai
         if not repos:
             tasks[task_id] = {
                 "status": "error",
-                "message": f"Nenhuma atividade recente encontrada para @{username}. O usuário pode não ter eventos públicos nos últimos 90 dias.",
+                "message": (
+                    f"Nenhum repositório encontrado para @{username}. "
+                    "Em ambientes enterprise, repositórios privados de organizações podem não ser visíveis "
+                    "sem um token com escopo 'read:org' ou 'repo'. "
+                    "Verifique se o GITHUB_TOKEN informado tem as permissões necessárias."
+                ),
             }
             return
 
