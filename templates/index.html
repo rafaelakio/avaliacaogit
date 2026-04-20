@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GitHub Developer Profile Analyzer</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --bg-card:   #161b22;
+      --bg-input:  #0d1117;
+      --border:    #30363d;
+      --text:      #e6edf3;
+      --muted:     #8b949e;
+      --green:     #3fb950;
+      --red:       #f85149;
+      --yellow:    #d29922;
+      --blue:      #58a6ff;
+      --purple:    #bc8cff;
+      --orange:    #ffa657;
+      --radius:    10px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 14px;
+      line-height: 1.5;
+      min-height: 100vh;
+    }
+
+    a { color: var(--blue); text-decoration: none; }
+
+    /* ── Header ── */
+    .site-header {
+      border-bottom: 1px solid var(--border);
+      padding: 16px 24px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .site-header h1 { font-size: 18px; font-weight: 600; }
+    .site-header h1 span { color: var(--muted); font-size: 13px; font-weight: 400; margin-left: 6px; }
+
+    /* ── Layout ── */
+    .container { max-width: 900px; margin: 0 auto; padding: 32px 16px 80px; }
+
+    /* ── Form Card ── */
+    .form-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+      transition: opacity 0.3s;
+    }
+    .form-card.loading {
+      opacity: 0.55;
+      pointer-events: none;
+    }
+
+    .mode-tabs {
+      display: flex;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 20px;
+      width: fit-content;
+    }
+    .mode-tab {
+      padding: 8px 20px;
+      background: transparent;
+      color: var(--muted);
+      border: none;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 500;
+      transition: background 0.15s, color 0.15s;
+    }
+    .mode-tab.active { background: var(--blue); color: #fff; }
+    .mode-tab:not(.active):hover { background: #1c2128; color: var(--text); }
+
+    .input-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .input-row input {
+      flex: 1;
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 10px 14px;
+      color: var(--text);
+      font-size: 14px;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .input-row input:focus { border-color: var(--blue); }
+    .input-row input::placeholder { color: var(--muted); }
+
+    .btn-primary {
+      padding: 10px 22px;
+      background: var(--green);
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: filter 0.15s;
+    }
+    .btn-primary:hover { filter: brightness(1.15); }
+    .btn-primary:disabled { filter: brightness(0.5); cursor: not-allowed; }
+
+    .options-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+    }
+    .options-row label {
+      display: flex; align-items: center; gap: 6px;
+      color: var(--muted); cursor: pointer; font-size: 13px;
+    }
+    .options-row input[type="checkbox"] { accent-color: var(--blue); cursor: pointer; }
+    .options-row input[type="text"],
+    .options-row input[type="password"],
+    .options-row input[type="number"] {
+      background: var(--bg-input);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 10px;
+      color: var(--text); font-size: 13px;
+      outline: none; transition: border-color 0.15s;
+    }
+    .options-row input[type="number"] { width: 64px; }
+    .options-row input:focus { border-color: var(--blue); }
+    .options-row input::placeholder { color: var(--muted); }
+    #max-repos-group { display: none; }
+
+    /* ── Loading card ── */
+    .loading-card {
+      background: var(--bg-card);
+      border: 1px solid var(--blue);
+      border-radius: var(--radius);
+      padding: 28px 24px;
+      margin-bottom: 16px;
+      animation: pulse-border 2s ease-in-out infinite;
+    }
+    @keyframes pulse-border {
+      0%, 100% { border-color: var(--blue); box-shadow: 0 0 0 0 rgba(88,166,255,0); }
+      50%       { border-color: #79b8ff;    box-shadow: 0 0 0 4px rgba(88,166,255,0.12); }
+    }
+
+    .loading-top {
+      display: flex; align-items: center; gap: 20px; margin-bottom: 20px;
+    }
+    .spinner-large {
+      width: 44px; height: 44px; flex-shrink: 0;
+      border: 4px solid #1c2128;
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin 0.75s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .loading-info { flex: 1; }
+    #progress-text {
+      font-size: 15px; font-weight: 600; color: var(--text); margin-bottom: 4px;
+    }
+    .dots::after {
+      content: '';
+      animation: dots 1.5s steps(4, end) infinite;
+    }
+    @keyframes dots {
+      0%  { content: ''; }
+      25% { content: '.'; }
+      50% { content: '..'; }
+      75% { content: '...'; }
+    }
+    #elapsed-display {
+      font-size: 12px; color: var(--muted);
+    }
+
+    /* Step tracker */
+    .step-track {
+      display: flex; gap: 0; margin-bottom: 16px; border-radius: 6px; overflow: hidden;
+    }
+    .step-item {
+      flex: 1; padding: 7px 4px; text-align: center;
+      font-size: 11px; font-weight: 500;
+      background: #1c2128; color: var(--muted);
+      border-right: 1px solid var(--bg);
+      transition: background 0.4s, color 0.4s;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .step-item:last-child { border-right: none; }
+    .step-item.done    { background: #0f2a14; color: var(--green); }
+    .step-item.active  { background: #0c1f38; color: var(--blue); font-weight: 700; }
+
+    .loading-note {
+      font-size: 12px; color: var(--muted);
+      padding: 10px 14px;
+      background: #0d1117;
+      border-radius: 6px;
+      border-left: 3px solid var(--border);
+    }
+
+    /* ── Error ── */
+    .error-card {
+      background: #2d0f10;
+      border: 1px solid #6e1b1e;
+      border-radius: var(--radius);
+      padding: 16px 20px;
+      margin-bottom: 16px;
+      color: #ffa198;
+    }
+    .error-card strong { color: var(--red); display: block; margin-bottom: 4px; font-size: 14px; }
+
+    /* ── Results ── */
+    .section-title {
+      font-size: 11px; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.06em; color: var(--muted); margin-bottom: 12px;
+    }
+
+    .profile-header {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      display: grid;
+      grid-template-columns: auto 1fr auto;
+      gap: 24px;
+      align-items: center;
+      margin-bottom: 16px;
+    }
+    @media (max-width: 640px) { .profile-header { grid-template-columns: 1fr; text-align: center; } }
+
+    .profile-avatar {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 2px solid var(--border); object-fit: cover;
+    }
+    .avatar-placeholder {
+      width: 72px; height: 72px; border-radius: 50%;
+      border: 2px solid var(--border); background: #1c2128;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 30px;
+    }
+    .profile-info h2 { font-size: 20px; font-weight: 700; margin-bottom: 2px; }
+    .profile-info .sub { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+    .profile-info .desc { color: var(--muted); font-size: 13px; font-style: italic; margin-bottom: 10px; }
+    .lang-pills { display: flex; flex-wrap: wrap; gap: 6px; }
+    .lang-pill {
+      padding: 2px 10px;
+      background: #1c2128; border: 1px solid var(--border);
+      border-radius: 20px; font-size: 12px;
+    }
+
+    .score-block { text-align: center; }
+    .score-block svg { display: block; margin: 0 auto 8px; }
+    .seniority-badge {
+      display: inline-block; padding: 4px 14px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .badge-junior  { background: #2d1a1a; color: var(--red);    border: 1px solid var(--red); }
+    .badge-mid     { background: #2a2112; color: var(--yellow);  border: 1px solid var(--yellow); }
+    .badge-senior  { background: #122b1a; color: var(--green);   border: 1px solid var(--green); }
+    .profile-type  { color: var(--blue); font-size: 12px; margin-top: 6px; }
+
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(158px, 1fr));
+      gap: 10px; margin-bottom: 16px;
+    }
+    .metric-card {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 14px 16px;
+    }
+    .metric-label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 6px; }
+    .metric-val   { font-size: 15px; font-weight: 600; }
+    .metric-sub   { color: var(--muted); font-size: 11px; margin-top: 2px; }
+    .ok   { color: var(--green); }
+    .warn { color: var(--yellow); }
+    .bad  { color: var(--red); }
+    .info { color: var(--blue); }
+
+    .score-breakdown {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+    }
+    .dim-row {
+      display: grid; grid-template-columns: 185px 1fr 44px;
+      align-items: center; gap: 12px; margin-bottom: 10px;
+    }
+    .dim-name { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .dim-bar-bg { height: 8px; background: #1c2128; border-radius: 4px; overflow: hidden; }
+    .dim-bar-fill { height: 100%; border-radius: 4px; width: 0; transition: width 1.1s ease; }
+    .dim-score { font-size: 13px; font-weight: 600; text-align: right; }
+
+    .analysis-panel {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 20px; margin-bottom: 16px;
+    }
+    .analysis-source {
+      font-size: 11px; color: var(--muted);
+      border: 1px solid var(--border); border-radius: 4px;
+      padding: 2px 8px; display: inline-block; margin-bottom: 16px;
+    }
+    .analysis-block { margin-bottom: 20px; }
+    .analysis-block:last-child { margin-bottom: 0; }
+    .analysis-block h3 { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 10px; }
+    .analysis-block h3.green  { color: var(--green); }
+    .analysis-block h3.red    { color: var(--red); }
+    .analysis-block h3.blue   { color: var(--blue); }
+    .analysis-block h3.yellow { color: var(--yellow); }
+    .analysis-block p { font-size: 14px; line-height: 1.65; }
+    .analysis-list { list-style: none; }
+    .analysis-list li {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 6px 0; border-bottom: 1px solid #1c2128;
+      font-size: 13px; line-height: 1.5;
+    }
+    .analysis-list li:last-child { border-bottom: none; }
+    .analysis-list .icon { flex-shrink: 0; font-size: 13px; margin-top: 1px; }
+    .seniority-estimate { display: flex; align-items: center; gap: 12px; margin-bottom: 10px; }
+    .seniority-just { color: var(--muted); font-size: 13px; line-height: 1.5; }
+
+    .fw-section {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); padding: 16px 20px; margin-bottom: 16px;
+    }
+    .fw-grid { display: flex; flex-wrap: wrap; gap: 6px; }
+    .fw-pill {
+      padding: 3px 10px; background: #1c1f2e; border: 1px solid #3d4466;
+      border-radius: 20px; font-size: 12px; color: var(--purple);
+    }
+
+    .repo-list-wrap {
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 16px; overflow: hidden;
+    }
+    .repo-list-head {
+      padding: 10px 16px; background: #0d1117;
+      border-bottom: 1px solid var(--border);
+    }
+    .repo-list-row {
+      display: flex; padding: 9px 16px; border-bottom: 1px solid #1c2128;
+      font-size: 13px; align-items: center; gap: 8px;
+    }
+    .repo-list-row:last-child { border-bottom: none; }
+    .repo-list-row .rn { flex: 1; color: var(--blue); font-weight: 500; }
+
+    .export-bar {
+      display: flex; gap: 10px; flex-wrap: wrap; padding: 16px 20px;
+      background: var(--bg-card); border: 1px solid var(--border);
+      border-radius: var(--radius); margin-bottom: 16px; align-items: center;
+    }
+    .export-bar .exp-label { color: var(--muted); font-size: 13px; }
+    .export-bar .spacer { flex: 1; }
+    .btn-export {
+      padding: 8px 18px; border-radius: 6px; font-size: 13px; font-weight: 600;
+      border: 1px solid; cursor: pointer; transition: filter 0.15s; background: transparent;
+    }
+    .btn-export:hover  { filter: brightness(1.2); }
+    .btn-export:disabled { opacity: 0.5; cursor: wait; }
+    .btn-json   { color: var(--blue);   border-color: var(--blue); }
+    .btn-csv    { color: var(--green);  border-color: var(--green); }
+    .btn-png    { color: var(--purple); border-color: var(--purple); }
+    .btn-reset  { color: var(--muted);  border-color: var(--border); }
+  </style>
+</head>
+<body>
+
+<header class="site-header">
+  <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57
+      0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695
+      -.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99
+      .105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225
+      -.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405
+      c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225
+      0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3
+      0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/>
+  </svg>
+  <h1>GitHub Developer Profile Analyzer <span>— análise técnica automatizada</span></h1>
+</header>
+
+<div class="container">
+
+  <!-- FORM (stays visible, dims during loading) -->
+  <div class="form-card" id="form-section">
+    <div class="mode-tabs">
+      <button class="mode-tab active" data-mode="repo">Repositório</button>
+      <button class="mode-tab" data-mode="user">Perfil de Usuário</button>
+    </div>
+
+    <div class="input-row">
+      <input id="main-input" type="text"
+        placeholder="https://github.com/owner/repo"
+        autocomplete="off" spellcheck="false" />
+      <button class="btn-primary" id="analyze-btn" onclick="startAnalysis()">Analisar</button>
+    </div>
+
+    <div class="options-row">
+      <label><input type="checkbox" id="no-ai-chk"> Sem IA (análise por regras)</label>
+      <input type="password" id="token-input" placeholder="GitHub Token (opcional)" style="width:220px"/>
+      <div id="max-repos-group">
+        <label style="color:var(--muted);font-size:13px">
+          Max repos: <input type="number" id="max-repos-input" value="8" min="1" max="30" />
+        </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOADING CARD (hidden initially via JS on init) -->
+  <div id="loading-section">
+    <div class="loading-card">
+      <div class="loading-top">
+        <div class="spinner-large"></div>
+        <div class="loading-info">
+          <div id="progress-text">Iniciando<span class="dots"></span></div>
+          <div id="elapsed-display">0 segundos decorridos</div>
+        </div>
+      </div>
+
+      <div class="step-track" id="step-track">
+        <div class="step-item" id="step-0">Conectando</div>
+        <div class="step-item" id="step-1">Coletando dados</div>
+        <div class="step-item" id="step-2">Analisando commits</div>
+        <div class="step-item" id="step-3">Calculando score</div>
+        <div class="step-item" id="step-4">Análise textual</div>
+      </div>
+
+      <div class="loading-note">
+        A análise faz múltiplas chamadas à API do GitHub e pode levar <strong>1 a 3 minutos</strong>.
+        Os logs de <code style="font-size:11px;color:var(--blue)">/api/status</code> a cada segundo confirmam que está funcionando.
+      </div>
+    </div>
+  </div>
+
+  <!-- ERROR -->
+  <div id="error-section">
+    <div class="error-card">
+      <strong>Erro na análise</strong>
+      <span id="error-msg"></span>
+    </div>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results-section">
+    <div id="capture-area" style="background:var(--bg);padding:4px 0">
+
+      <div id="profile-header-card"></div>
+      <div id="frameworks-section"></div>
+      <div id="repo-list-section"></div>
+
+      <div id="metrics-section" style="margin-bottom:16px">
+        <div class="section-title">Métricas</div>
+        <div class="metrics-grid" id="metrics-grid"></div>
+      </div>
+
+      <div class="score-breakdown" id="score-breakdown">
+        <div class="section-title">Detalhamento do Score</div>
+        <div id="dim-rows"></div>
+      </div>
+
+      <div class="analysis-panel" id="analysis-panel"></div>
+    </div>
+
+    <div class="export-bar">
+      <span class="exp-label">Exportar resultados:</span>
+      <button class="btn-export btn-json" id="btn-json" onclick="exportJson()">⬇ JSON</button>
+      <button class="btn-export btn-csv"  id="btn-csv"  onclick="exportCsv()">⬇ CSV</button>
+      <button class="btn-export btn-png"  id="btn-png"  onclick="exportPng()">⬇ PNG</button>
+      <span class="spacer"></span>
+      <button class="btn-export btn-reset" onclick="resetForm()">↩ Nova análise</button>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script>
+  /* ── State ── */
+  let currentMode   = 'repo';
+  let currentTaskId = null;
+  let pollTimer     = null;
+  let elapsedTimer  = null;
+  let elapsedSecs   = 0;
+  let currentStep   = -1;
+
+  const STEP_KEYWORDS = [
+    ['Iniciando', 'Validando', 'Conectando'],          // step 0
+    ['Coletando', 'Buscando repositórios'],             // step 1
+    ['Analisando', 'Calculando métricas'],              // step 2 (also step 3 for user multi-repo)
+    ['Calculando métricas', 'Agregando'],               // step 3
+    ['Gerando análise', 'textual'],                     // step 4
+  ];
+
+  /* ── Init ── */
+  // Hide dynamic sections on page load via explicit inline style
+  document.getElementById('loading-section').style.display = 'none';
+  document.getElementById('error-section').style.display   = 'none';
+  document.getElementById('results-section').style.display = 'none';
+
+  /* ── Mode tabs ── */
+  document.querySelectorAll('.mode-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelectorAll('.mode-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      currentMode = btn.dataset.mode;
+      const inp = document.getElementById('main-input');
+      const maxG = document.getElementById('max-repos-group');
+      inp.placeholder = currentMode === 'user'
+        ? 'https://github.com/rafaelakio  ou  rafaelakio'
+        : 'https://github.com/owner/repo';
+      maxG.style.display = currentMode === 'user' ? 'block' : 'none';
+    });
+  });
+
+  document.getElementById('main-input').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startAnalysis();
+  });
+
+  /* ── Start analysis ── */
+  async function startAnalysis() {
+    const input = document.getElementById('main-input').value.trim();
+    if (!input) { document.getElementById('main-input').focus(); return; }
+
+    const body = {
+      mode:      currentMode,
+      no_ai:     document.getElementById('no-ai-chk').checked,
+      token:     document.getElementById('token-input').value.trim(),
+      max_repos: parseInt(document.getElementById('max-repos-input').value) || 8,
+    };
+    if (currentMode === 'user') body.user = input;
+    else                        body.url  = input;
+
+    showLoading();
+
+    try {
+      const resp = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const data = await resp.json();
+      currentTaskId = data.task_id;
+      startElapsedTimer();
+      pollStatus();
+    } catch (err) {
+      showError('Não foi possível conectar ao servidor: ' + err.message);
+    }
+  }
+
+  /* ── Loading state ── */
+  function showLoading() {
+    document.getElementById('form-section').classList.add('loading');
+    document.getElementById('analyze-btn').disabled = true;
+    document.getElementById('loading-section').style.display = 'block';
+    document.getElementById('error-section').style.display   = 'none';
+    document.getElementById('results-section').style.display = 'none';
+    resetSteps();
+    setStep(0);
+  }
+
+  function resetSteps() {
+    currentStep = -1;
+    document.querySelectorAll('.step-item').forEach(el => {
+      el.classList.remove('active', 'done');
+    });
+  }
+
+  function setStep(n) {
+    if (n === currentStep) return;
+    for (let i = 0; i < n; i++) {
+      const el = document.getElementById('step-' + i);
+      if (el) { el.classList.remove('active'); el.classList.add('done'); }
+    }
+    const active = document.getElementById('step-' + n);
+    if (active) { active.classList.remove('done'); active.classList.add('active'); }
+    currentStep = n;
+  }
+
+  function updateProgressStep(text) {
+    const lower = text.toLowerCase();
+    if (lower.includes('gerando') || lower.includes('textual')) setStep(4);
+    else if (lower.includes('agregando') || lower.includes('calculando')) setStep(3);
+    else if (lower.includes('analisando') || lower.includes('métricas')) setStep(2);
+    else if (lower.includes('coletando') || lower.includes('buscando')) setStep(1);
+  }
+
+  function startElapsedTimer() {
+    elapsedSecs = 0;
+    clearInterval(elapsedTimer);
+    elapsedTimer = setInterval(() => {
+      elapsedSecs++;
+      const m = Math.floor(elapsedSecs / 60);
+      const s = elapsedSecs % 60;
+      document.getElementById('elapsed-display').textContent =
+        m > 0 ? `${m}m ${s}s decorridos` : `${s} segundo${s !== 1 ? 's' : ''} decorridos`;
+    }, 1000);
+  }
+
+  function stopElapsedTimer() { clearInterval(elapsedTimer); }
+
+  /* ── Polling ── */
+  function pollStatus() {
+    clearInterval(pollTimer);
+    pollTimer = setInterval(async () => {
+      try {
+        const resp = await fetch(`/api/status/${currentTaskId}`);
+        if (!resp.ok) return;
+        const task = await resp.json();
+
+        if (task.status === 'running') {
+          const txt = task.progress || 'Processando...';
+          // Update text without the dots span
+          const el = document.getElementById('progress-text');
+          el.innerHTML = txt + '<span class="dots"></span>';
+          updateProgressStep(txt);
+
+        } else if (task.status === 'done') {
+          clearInterval(pollTimer);
+          stopElapsedTimer();
+          setStep(4);
+          // brief pause so user sees the last step complete
+          setTimeout(() => {
+            document.getElementById('loading-section').style.display = 'none';
+            document.getElementById('form-section').classList.remove('loading');
+            document.getElementById('form-section').style.display = 'none';
+            document.getElementById('analyze-btn').disabled = false;
+            renderResults(task.result);
+            document.getElementById('results-section').style.display = 'block';
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+          }, 400);
+
+        } else if (task.status === 'error') {
+          clearInterval(pollTimer);
+          stopElapsedTimer();
+          showError(task.message || 'Erro desconhecido.');
+        }
+      } catch (_) { /* network hiccup, keep polling */ }
+    }, 1000);
+  }
+
+  /* ── Error state ── */
+  function showError(msg) {
+    document.getElementById('error-msg').textContent = msg;
+    document.getElementById('loading-section').style.display = 'none';
+    document.getElementById('error-section').style.display   = 'block';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('form-section').classList.remove('loading');
+    document.getElementById('analyze-btn').disabled = false;
+  }
+
+  /* ── Reset ── */
+  function resetForm() {
+    clearInterval(pollTimer);
+    stopElapsedTimer();
+    currentTaskId = null;
+    document.getElementById('form-section').style.display    = 'block';
+    document.getElementById('form-section').classList.remove('loading');
+    document.getElementById('loading-section').style.display = 'none';
+    document.getElementById('error-section').style.display   = 'none';
+    document.getElementById('results-section').style.display = 'none';
+    document.getElementById('analyze-btn').disabled = false;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  /* ── Utilities ── */
+  function scoreColor(s) {
+    return s >= 70 ? 'var(--green)' : s >= 40 ? 'var(--yellow)' : 'var(--red)';
+  }
+  function scoreClass(s) {
+    return s >= 70 ? 'ok' : s >= 40 ? 'warn' : 'bad';
+  }
+  function boolVal(v) {
+    return v ? '<span class="ok">✓ Sim</span>' : '<span class="bad">✗ Não</span>';
+  }
+  function cap(s) { return s ? s[0].toUpperCase() + s.slice(1) : ''; }
+  function seniorityBadge(s) {
+    const cls = s === 'senior' ? 'badge-senior' : s === 'mid-level' ? 'badge-mid' : 'badge-junior';
+    return `<span class="seniority-badge ${cls}">${s}</span>`;
+  }
+
+  /* ── Score ring ── */
+  function scoreRing(score) {
+    const r = 48, c = 60;
+    const circ = +(2 * Math.PI * r).toFixed(2);
+    const off  = +(circ * (1 - score / 100)).toFixed(2);
+    const col  = scoreColor(score);
+    return `<svg viewBox="0 0 120 120" width="120" height="120">
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="#1c2128" stroke-width="8"/>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${col}" stroke-width="8"
+        stroke-linecap="round"
+        stroke-dasharray="${circ}" stroke-dashoffset="${off}"
+        transform="rotate(-90 ${c} ${c})"
+        style="transition:stroke-dashoffset 1.2s ease"/>
+      <text x="${c}" y="${c-4}" text-anchor="middle" fill="${col}"
+            font-size="26" font-weight="700" font-family="system-ui,sans-serif">${score.toFixed(0)}</text>
+      <text x="${c}" y="${c+14}" text-anchor="middle" fill="#8b949e"
+            font-size="11" font-family="system-ui,sans-serif">/100</text>
+    </svg>`;
+  }
+
+  /* ── Render all results ── */
+  function renderResults(r) {
+    renderProfileHeader(r);
+    renderFrameworks(r);
+    if (r.mode === 'user' && r.repo_names && r.repo_names.length) renderRepoList(r);
+    renderMetrics(r);
+    renderScoreBreakdown(r);
+    renderAnalysis(r);
+
+    // Trigger bar animations after a tick
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        document.querySelectorAll('.dim-bar-fill[data-score]').forEach(el => {
+          el.style.width = el.dataset.score + '%';
+        });
+      });
+    });
+  }
+
+  function renderProfileHeader(r) {
+    const isUser  = r.mode === 'user';
+    const title   = isUser ? `${r.user_name} (@${r.owner})` : `${r.owner} / ${r.repo}`;
+    const sub     = isUser
+      ? `${r.repos_analyzed} repos analisados · ${r.user_followers} seguidores`
+      : `${r.metrics.stars} ★  ${r.metrics.forks} forks`;
+    const desc    = isUser ? r.user_bio : r.description;
+    const avatar  = (isUser && r.user_avatar)
+      ? `<img class="profile-avatar" src="${r.user_avatar}" alt="avatar"/>`
+      : `<div class="avatar-placeholder">👤</div>`;
+    const langs   = r.languages.slice(0, 7).map(l => `<span class="lang-pill">${l}</span>`).join('');
+
+    document.getElementById('profile-header-card').innerHTML = `
+      <div class="profile-header">
+        ${avatar}
+        <div class="profile-info">
+          <h2>${title}</h2>
+          <div class="sub">${sub}</div>
+          ${desc ? `<div class="desc">${desc}</div>` : ''}
+          <div class="lang-pills">${langs}</div>
+        </div>
+        <div class="score-block">
+          ${scoreRing(r.composite_score)}
+          ${seniorityBadge(r.seniority)}
+          <div class="profile-type">${r.detected_profile}</div>
+        </div>
+      </div>`;
+  }
+
+  function renderFrameworks(r) {
+    const sec = document.getElementById('frameworks-section');
+    if (!r.frameworks || !r.frameworks.length) { sec.innerHTML = ''; return; }
+    const pills = r.frameworks.map(f => `<span class="fw-pill">${f}</span>`).join('');
+    sec.innerHTML = `<div class="fw-section">
+      <div class="section-title" style="margin-bottom:10px">Frameworks &amp; Bibliotecas</div>
+      <div class="fw-grid">${pills}</div>
+    </div>`;
+  }
+
+  function renderRepoList(r) {
+    const rows = r.repo_names.map(name => `
+      <div class="repo-list-row">
+        <span class="rn">
+          <a href="https://github.com/${name}" target="_blank" rel="noopener">${name}</a>
+        </span>
+      </div>`).join('');
+    document.getElementById('repo-list-section').innerHTML = `
+      <div class="repo-list-wrap">
+        <div class="repo-list-head section-title" style="margin-bottom:0">
+          Repositórios Analisados
+        </div>
+        ${rows}
+      </div>`;
+  }
+
+  function renderMetrics(r) {
+    const m = r.metrics;
+    const rColors = { none:'bad', minimal:'warn', basic:'warn', good:'ok', comprehensive:'ok' };
+    const sColors = { flat:'bad', basic:'warn', organized:'ok', 'well-organized':'ok' };
+    const freq    = m.commit_frequency_per_week ? `${m.commit_frequency_per_week}/sem` : '—';
+    const ci      = m.ci_cd_systems && m.ci_cd_systems.length ? m.ci_cd_systems.join(', ') : '—';
+    const qf      = m.quality_files && m.quality_files.length ? `${m.quality_files.length} arquivo(s)` : 'nenhum';
+
+    const cards = [
+      { label:'Testes Automatizados', val:boolVal(m.has_tests),        sub:`${m.test_files_count} arquivo(s) de teste` },
+      { label:'CI/CD',                val:boolVal(m.has_ci_cd),         sub:ci },
+      { label:'Containerização',      val:boolVal(m.has_dockerfile),    sub:'Dockerfile / Compose' },
+      { label:'README',               val:`<span class="${rColors[m.readme_quality]||'info'}">${cap(m.readme_quality)}</span>`, sub:`${m.readme_length.toLocaleString()} chars` },
+      { label:'Estrutura do Projeto', val:`<span class="${sColors[m.project_structure]||'info'}">${cap(m.project_structure)}</span>`, sub:`Complexidade: ${r.complexity_level}` },
+      { label:'Commits Analisados',   val:`<span class="info">${m.total_commits_sampled}</span>`, sub:`${freq} · ${m.conventional_commit_ratio}% conv.` },
+      { label:'Pull Requests',        val:`<span class="info">${m.pr_count}</span>`,              sub:`${m.branch_count} branch(es)` },
+      { label:'Boas Práticas',        val:`<span class="info">${m.quality_files?m.quality_files.length:0}</span>`, sub:qf },
+      { label:'CONTRIBUTING',         val:boolVal(m.has_contributing), sub:'guia de contribuição' },
+      { label:'CHANGELOG',            val:boolVal(m.has_changelog),    sub:'histórico de mudanças' },
+    ];
+
+    document.getElementById('metrics-grid').innerHTML = cards.map(c => `
+      <div class="metric-card">
+        <div class="metric-label">${c.label}</div>
+        <div class="metric-val">${c.val}</div>
+        <div class="metric-sub">${c.sub}</div>
+      </div>`).join('');
+  }
+
+  function renderScoreBreakdown(r) {
+    const rows = r.dimensions.map(d => {
+      const col = scoreColor(d.score);
+      const cls = scoreClass(d.score);
+      return `<div class="dim-row">
+        <div class="dim-name" title="${d.details.join(' | ')}">${d.name}</div>
+        <div class="dim-bar-bg">
+          <div class="dim-bar-fill" data-score="${d.score}" style="background:${col};width:0%"></div>
+        </div>
+        <div class="dim-score ${cls}">${d.score.toFixed(0)}</div>
+      </div>`;
+    }).join('');
+
+    const cc = scoreColor(r.composite_score);
+    const composite = `
+      <div class="dim-row" style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">
+        <div class="dim-name" style="font-weight:700">SCORE COMPOSTO</div>
+        <div class="dim-bar-bg">
+          <div class="dim-bar-fill" data-score="${r.composite_score}" style="background:${cc};width:0%"></div>
+        </div>
+        <div class="dim-score" style="color:${cc};font-weight:700">${r.composite_score.toFixed(0)}</div>
+      </div>`;
+
+    document.getElementById('dim-rows').innerHTML = rows + composite;
+  }
+
+  function renderAnalysis(r) {
+    const an = r.analysis;
+    const src = an.used_ai
+      ? '<span class="analysis-source">✦ Powered by Claude AI</span>'
+      : '<span class="analysis-source">⚙ Análise baseada em regras</span>';
+
+    const strengths = an.strengths.map(s =>
+      `<li><span class="icon ok">✓</span><span>${s}</span></li>`).join('');
+    const weaknesses = an.weaknesses.map(w =>
+      `<li><span class="icon bad">✗</span><span>${w}</span></li>`).join('');
+    const recs = an.recommendations.map((rec, i) =>
+      `<li><span class="icon info">${i+1}.</span><span>${rec}</span></li>`).join('');
+
+    document.getElementById('analysis-panel').innerHTML = `
+      ${src}
+      <div class="analysis-block">
+        <h3 class="yellow">Perfil do Desenvolvedor</h3>
+        <p>${an.developer_profile}</p>
+      </div>
+      <div class="analysis-block">
+        <h3 class="yellow">Estimativa de Senioridade</h3>
+        <div class="seniority-estimate">
+          ${seniorityBadge(an.seniority_estimate)}
+          <span style="color:var(--muted);font-size:13px">Score: ${r.seniority_score.toFixed(0)}/100</span>
+        </div>
+        <p class="seniority-just">${an.seniority_justification}</p>
+      </div>
+      ${strengths ? `<div class="analysis-block"><h3 class="green">Pontos Fortes</h3><ul class="analysis-list">${strengths}</ul></div>` : ''}
+      ${weaknesses ? `<div class="analysis-block"><h3 class="red">Áreas de Melhoria</h3><ul class="analysis-list">${weaknesses}</ul></div>` : ''}
+      ${recs ? `<div class="analysis-block"><h3 class="blue">Recomendações</h3><ul class="analysis-list">${recs}</ul></div>` : ''}`;
+  }
+
+  /* ── Exports ── */
+  function exportJson() {
+    if (!currentTaskId) return;
+    window.location.href = `/api/export/${currentTaskId}/json`;
+  }
+
+  function exportCsv() {
+    if (!currentTaskId) return;
+    window.location.href = `/api/export/${currentTaskId}/csv`;
+  }
+
+  async function exportPng() {
+    const el  = document.getElementById('capture-area');
+    const btn = document.getElementById('btn-png');
+    if (!el) return;
+    if (typeof html2canvas === 'undefined') {
+      alert('Biblioteca html2canvas não carregada. Verifique sua conexão de internet.');
+      return;
+    }
+    const orig = btn.textContent;
+    btn.textContent = 'Gerando...';
+    btn.disabled = true;
+    try {
+      const canvas = await html2canvas(el, {
+        backgroundColor: '#0d1117',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        allowTaint: true,
+      });
+      const link = document.createElement('a');
+      link.download = 'analysis.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    } catch (e) {
+      alert('Erro ao gerar PNG: ' + e.message);
+    } finally {
+      btn.textContent = orig;
+      btn.disabled = false;
+    }
+  }
+</script>
+</body>
+</html>
