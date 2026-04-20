@@ -387,50 +387,68 @@ class GitHubCollector:
         return info
 
     def get_contributed_repos(self, username: str, max_repos: int = 10) -> list[dict]:
-        """Return repos where the user was recently active (events-based), own or external.
+        """Return repos where the user has contributed, mirroring the GitHub UI
+        'contributed-by' filter.
 
-        Falls back to owned repos when events are unavailable (e.g. private org repos
-        in enterprise environments where the token lacks read:org / read:user scope).
+        Strategy (in order):
+        1. Search commits authored by the user (works for private repos with token)
+        2. Events API (fallback for instances where search is disabled)
+        3. User's own repos (last resort)
         """
-        seen_names: list[str] = []
         seen_set: set[str] = set()
+        full_names: list[str] = []
 
-        for page in range(1, 4):
-            events = self._get(
-                f"/users/{username}/events",
-                params={"per_page": 100, "page": page},
-            )
-            if not events:
-                break
-            for event in events:
-                if event.get("type") not in ("PushEvent", "PullRequestEvent", "CreateEvent", "IssueCommentEvent"):
-                    continue
-                repo_info = event.get("repo", {})
-                full_name = repo_info.get("name", "")
-                if not full_name or full_name in seen_set:
-                    continue
-                seen_set.add(full_name)
-                seen_names.append(full_name)
-            if len(seen_names) >= max_repos * 3:
-                break
+        # 1. Commit search — same data source as GitHub's "contributed-by:@me" UI filter
+        search_result = self._get(
+            "/search/commits",
+            params={"q": f"author:{username}", "sort": "author-date", "order": "desc", "per_page": 100},
+        )
+        if isinstance(search_result, dict):
+            for item in search_result.get("items", []):
+                fn = (item.get("repository") or {}).get("full_name", "")
+                if fn and fn not in seen_set:
+                    seen_set.add(fn)
+                    full_names.append(fn)
 
-        result: list[dict] = []
-        for full_name in seen_names:
-            if len(result) >= max_repos:
-                break
-            repo_data = self._get(f"/repos/{full_name}")
-            if repo_data and not repo_data.get("archived"):
-                result.append(repo_data)
+        # 2. Events API fallback
+        if not full_names:
+            for page in range(1, 4):
+                events = self._get(
+                    f"/users/{username}/events",
+                    params={"per_page": 100, "page": page},
+                )
+                if not events or not isinstance(events, list):
+                    break
+                for event in events:
+                    if event.get("type") not in ("PushEvent", "PullRequestEvent", "CreateEvent", "IssueCommentEvent"):
+                        continue
+                    fn = (event.get("repo") or {}).get("name", "")
+                    if fn and fn not in seen_set:
+                        seen_set.add(fn)
+                        full_names.append(fn)
+                if len(full_names) >= max_repos * 3:
+                    break
 
-        # Fallback: events API returned nothing (private org repos in enterprise)
-        # Try fetching repos the user owns or has push access to
-        if not result:
+        # 3. Own repos — last resort (enterprise with restricted search/events)
+        if not full_names:
             owned = self._get(
                 f"/users/{username}/repos",
-                params={"type": "owner", "sort": "pushed", "per_page": max_repos, "affiliation": "owner,collaborator,organization_member"},
+                params={"sort": "pushed", "per_page": max_repos},
             )
-            if owned and isinstance(owned, list):
-                result = [r for r in owned if not r.get("archived")][:max_repos]
+            if isinstance(owned, list):
+                return sorted(
+                    [r for r in owned if not r.get("archived")][:max_repos],
+                    key=lambda r: r.get("pushed_at") or "",
+                    reverse=True,
+                )
+
+        result: list[dict] = []
+        for fn in full_names:
+            if len(result) >= max_repos:
+                break
+            repo_data = self._get(f"/repos/{fn}")
+            if repo_data and isinstance(repo_data, dict) and not repo_data.get("archived"):
+                result.append(repo_data)
 
         return sorted(result, key=lambda r: r.get("pushed_at") or "", reverse=True)
 
