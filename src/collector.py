@@ -239,81 +239,91 @@ class GitHubCollector:
         if not root or not isinstance(root, list):
             return
 
-        root_files = []
-        root_dirs = []
-        all_paths = []
-        ci_cd_found = []
-        quality_files_found = []
-        test_files = 0
-        has_dockerfile = False
-        has_tests = False
-
         for item in root:
-            name = item.get("name", "")
-            item_type = item.get("type", "")
-            all_paths.append(name)
-
-            if item_type == "file":
-                root_files.append(name)
-                lower = name.lower()
-                if lower == "dockerfile":
-                    has_dockerfile = True
-                if lower == ".gitignore":
-                    data.has_gitignore = True
-                if lower in [f.lower() for f in ["LICENSE", "LICENSE.md", "LICENSE.txt"]]:
-                    data.has_license = True
-                if any(name == qf or name.lower() == qf.lower() for qf in [
-                    ".editorconfig", ".eslintrc", ".eslintrc.json", ".eslintrc.js",
-                    ".eslintrc.yml", ".prettierrc", ".prettierrc.json", "pyproject.toml",
-                    ".flake8", "setup.cfg", ".mypy.ini", "ruff.toml", ".rubocop.yml",
-                    ".golangci.yml", ".golangci.yaml", "sonar-project.properties",
-                    "SECURITY.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md",
-                    "CHANGELOG.md", "CHANGELOG",
-                ]):
-                    quality_files_found.append(name)
-                if any(name == ci for ci in [".travis.yml", "Jenkinsfile",
-                    ".gitlab-ci.yml", "azure-pipelines.yml", ".drone.yml",
-                    "bitbucket-pipelines.yml", "appveyor.yml", "Makefile"]):
-                    ci_cd_found.append(name)
-
-            elif item_type == "dir":
-                root_dirs.append(name)
-                lower = name.lower()
-                if lower in ["test", "tests", "__tests__", "spec", "specs", "e2e"]:
-                    has_tests = True
-                    sub = self._get(f"/repos/{data.owner}/{data.repo}/contents/{name}")
-                    if sub and isinstance(sub, list):
-                        test_files += len([f for f in sub if f.get("type") == "file"])
-                if name == ".github":
-                    sub = self._get(f"/repos/{data.owner}/{data.repo}/contents/.github")
-                    if sub and isinstance(sub, list):
-                        for sub_item in sub:
-                            if sub_item.get("name", "").lower() == "workflows":
-                                ci_cd_found.append(".github/workflows")
-                if name == ".circleci":
-                    ci_cd_found.append(".circleci/config.yml")
+            self._process_root_item(item, data)
 
         # Check for test files scattered in root
-        test_extensions = {".test.js", ".test.ts", ".spec.js", ".spec.ts", "_test.go", "_test.py"}
-        for f in root_files:
-            if any(f.endswith(ext) for ext in test_extensions):
-                has_tests = True
-                test_files += 1
-
+        self._check_scattered_test_files(data)
         # Check for docker-compose
-        for f in root_files:
-            if "docker-compose" in f.lower() or f.lower() == "dockerfile":
-                has_dockerfile = True
+        self._check_docker_presence(data)
 
-        data.root_files = root_files
-        data.root_dirs = root_dirs
-        data.all_paths = all_paths
-        data.has_ci_cd = len(ci_cd_found) > 0
-        data.ci_cd_files = ci_cd_found
-        data.has_dockerfile = has_dockerfile
-        data.has_tests = has_tests
-        data.test_files_count = test_files
-        data.quality_files = quality_files_found
+    def _process_root_item(self, item: dict, data: RepoData) -> None:
+        name = item.get("name", "")
+        item_type = item.get("type", "")
+        data.all_paths.append(name)
+
+        if item_type == "file":
+            data.root_files.append(name)
+            self._identify_file_by_name(name, data)
+        elif item_type == "dir":
+            data.root_dirs.append(name)
+            self._scan_directory_logic(name, data)
+
+    def _identify_file_by_name(self, name: str, data: RepoData) -> None:
+        lower = name.lower()
+        if lower == "dockerfile":
+            data.has_dockerfile = True
+        if lower == ".gitignore":
+            data.has_gitignore = True
+        if lower in ["license", "license.md", "license.txt"]:
+            data.has_license = True
+        
+        if self._is_quality_file(name):
+            data.quality_files.append(name)
+        
+        if self._is_ci_file(name):
+            data.ci_cd_files.append(name)
+            data.has_ci_cd = True
+
+    def _is_quality_file(self, name: str) -> bool:
+        quality_patterns = {
+            ".editorconfig", ".eslintrc", ".eslintrc.json", ".eslintrc.js",
+            ".eslintrc.yml", ".prettierrc", ".prettierrc.json", "pyproject.toml",
+            ".flake8", "setup.cfg", ".mypy.ini", "ruff.toml", ".rubocop.yml",
+            ".golangci.yml", ".golangci.yaml", "sonar-project.properties",
+            "SECURITY.md", "CODE_OF_CONDUCT.md", "CONTRIBUTING.md",
+            "CHANGELOG.md", "CHANGELOG",
+        }
+        return name in quality_patterns or name.lower() in [p.lower() for p in quality_patterns]
+
+    def _is_ci_file(self, name: str) -> bool:
+        ci_patterns = {
+            ".travis.yml", "Jenkinsfile", ".gitlab-ci.yml", "azure-pipelines.yml", 
+            ".drone.yml", "bitbucket-pipelines.yml", "appveyor.yml", "Makefile"
+        }
+        return name in ci_patterns
+
+    def _scan_directory_logic(self, name: str, data: RepoData) -> None:
+        lower = name.lower()
+        if lower in ["test", "tests", "__tests__", "spec", "specs", "e2e"]:
+            data.has_tests = True
+            sub = self._get(f"/repos/{data.owner}/{data.repo}/contents/{name}")
+            if sub and isinstance(sub, list):
+                data.test_files_count += len([f for f in sub if f.get("type") == "file"])
+        
+        if name == ".github":
+            sub = self._get(f"/repos/{data.owner}/{data.repo}/contents/.github")
+            if sub and isinstance(sub, list):
+                for sub_item in sub:
+                    if sub_item.get("name", "").lower() == "workflows":
+                        data.ci_cd_files.append(".github/workflows")
+                        data.has_ci_cd = True
+        
+        if name == ".circleci":
+            data.ci_cd_files.append(".circleci/config.yml")
+            data.has_ci_cd = True
+
+    def _check_scattered_test_files(self, data: RepoData) -> None:
+        test_extensions = {".test.js", ".test.ts", ".spec.js", ".spec.ts", "_test.go", "_test.py"}
+        for f in data.root_files:
+            if any(f.endswith(ext) for ext in test_extensions):
+                data.has_tests = True
+                data.test_files_count += 1
+
+    def _check_docker_presence(self, data: RepoData) -> None:
+        for f in data.root_files:
+            if "docker-compose" in f.lower() or f.lower() == "dockerfile":
+                data.has_dockerfile = True
 
     def _collect_readme(self, data: RepoData) -> None:
         for name in ["README.md", "README.MD", "readme.md", "README", "README.rst"]:

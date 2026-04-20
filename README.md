@@ -20,8 +20,54 @@ cp .env.example .env
 |---|---|---|
 | `GITHUB_TOKEN` | Recomendado | Token GitHub (aumenta limite de 60 para 5000 req/hora) |
 | `ANTHROPIC_API_KEY` | Para análise IA | Chave da API Anthropic |
+| `PORT` | Opcional | Porta para aplicação web (padrão: 5000) |
 
 ## Uso
+
+### Modo Web
+
+Inicie a aplicação web Flask:
+
+```bash
+python web_app.py
+```
+
+Acesse `http://localhost:5000` no seu navegador. A interface oferece dois modos de análise:
+
+#### 1. Análise de Repositório
+
+1. Selecione a aba **"Repository"**
+2. Cole a URL do repositório GitHub (ex: `https://github.com/owner/repo`)
+3. Opcionalmente, adicione seu token GitHub para aumentar os limites de requisições
+4. Clique em **"Analisar"**
+5. Acompanhe o progresso em tempo real
+6. Visualize os resultados incluindo:
+   - Profile e senioridade do desenvolvedor
+   - Score de qualidade (0-100)
+   - Breakdown de métricas (commits, testes, CI/CD, documentação, etc.)
+   - Análise textual detalhada com strengths, weaknesses e recommendations
+   - Linguagens e frameworks detectados
+
+#### 2. Análise de Desenvolvedor
+
+1. Selecione a aba **"Developer"**
+2. Digite o nome de usuário GitHub (ex: `octocat`)
+3. Defina o número máximo de repositórios a analisar (até 30)
+4. Opcionalmente, adicione seu token GitHub
+5. Clique em **"Analisar"**
+6. A análise agregará os dados de todos os repositórios públicos encontrados
+7. Visualize o perfil consolidado do desenvolvedor
+
+#### 3. Exportação de Resultados
+
+Após a análise, você pode exportar os resultados em dois formatos:
+
+- **JSON**: Estrutura completa com todas as métricas, scores e análises
+- **CSV**: Formato tabular para import em planilhas
+
+### Modo CLI
+
+Para análise via linha de comando:
 
 ```bash
 # Análise completa com IA

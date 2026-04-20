@@ -13,7 +13,7 @@ from flask import Flask, Response, jsonify, render_template, request, send_file
 
 load_dotenv()
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='templates/static')
 tasks: dict = {}
 
 

@@ -259,183 +259,93 @@ class MetricsAnalyzer:
             result.detected_profile = "Software Developer"
 
     def _compute_scores(self, data: RepoData, result: AnalysisResult) -> None:
-        dimensions = []
+        result.dimensions = [
+            self._score_commit_quality(result),
+            self._score_testing(result),
+            self._score_cicd(result),
+            self._score_documentation(data, result),
+            self._score_project_structure(data, result),
+            self._score_frameworks(data, result),
+            self._score_pr_workflow(data, result),
+            self._score_issue_tracking(data, result),
+        ]
 
-        # 1. Commit quality
-        cq = ScoreDimension("Commit Quality", 0.0)
+        # Composite score calculation
+        self._calculate_composite_score(result)
+        self._evaluate_complexity(result)
+
+    def _score_commit_quality(self, result: AnalysisResult) -> ScoreDimension:
+        score = 0.0
         if result.total_commits_sampled > 0:
-            score = 0.0
-            # Conventional commits (0-40 pts)
             score += result.conventional_commit_ratio * 40
-            # Message length (0-30 pts): avg > 20 = 15pts, > 50 = 30pts
-            if result.avg_message_length >= 50:
-                score += 30
-            elif result.avg_message_length >= 20:
-                score += 15
-            elif result.avg_message_length >= 10:
-                score += 5
-            # Low WIP ratio (0-20 pts): < 10% = 20pts, < 30% = 10pts
-            if result.wip_commit_ratio < 0.10:
-                score += 20
-            elif result.wip_commit_ratio < 0.30:
-                score += 10
-            # Consistent commits (0-10 pts)
-            if result.total_commits_sampled >= 20:
-                score += 10
-            elif result.total_commits_sampled >= 5:
-                score += 5
-            cq.score = min(score, 100)
-            cq.details = [
-                f"Conventional commit ratio: {result.conventional_commit_ratio:.0%}",
-                f"Average message length: {result.avg_message_length:.0f} chars",
-                f"WIP commit ratio: {result.wip_commit_ratio:.0%}",
-                f"Total commits sampled: {result.total_commits_sampled}",
-            ]
-        dimensions.append(cq)
+            score += 30 if result.avg_message_length >= 50 else (15 if result.avg_message_length >= 20 else 5)
+            score += 20 if result.wip_commit_ratio < 0.10 else (10 if result.wip_commit_ratio < 0.30 else 0)
+            score += 10 if result.total_commits_sampled >= 20 else 5
+        
+        return ScoreDimension(
+            "Commit Quality", min(score, 100),
+            [f"Conv. Ratio: {result.conventional_commit_ratio:.0%}", f"Avg Length: {result.avg_message_length:.0f}c"]
+        )
 
-        # 2. Testing
-        ts = ScoreDimension("Testing", 0.0)
+    def _score_testing(self, result: AnalysisResult) -> ScoreDimension:
         score = 0.0
         if result.has_tests:
             score += 50
-        if result.test_files_count >= 10:
-            score += 30
-        elif result.test_files_count >= 3:
-            score += 20
-        elif result.test_files_count >= 1:
-            score += 10
-        # Detect test frameworks in dependencies
+        score += 30 if result.test_files_count >= 10 else (20 if result.test_files_count >= 3 else 10 if result.test_files_count >= 1 else 0)
+        
         test_fws = {"pytest", "jest", "mocha", "vitest", "junit", "rspec", "testify"}
         found_test_fw = test_fws & {f.lower() for f in result.frameworks}
         if found_test_fw:
             score += 20
-        ts.score = min(score, 100)
-        ts.details = [
-            f"Has test directory: {result.has_tests}",
-            f"Test files found: {result.test_files_count}",
-            f"Test frameworks: {', '.join(found_test_fw) or 'none detected'}",
-        ]
-        dimensions.append(ts)
+            
+        return ScoreDimension("Testing", min(score, 100), [f"Files: {result.test_files_count}"])
 
-        # 3. CI/CD
-        ci = ScoreDimension("CI/CD & Automation", 0.0)
-        score = 0.0
-        if result.has_ci_cd:
-            score += 60
-        if result.has_dockerfile:
-            score += 25
-        if len(result.ci_cd_systems) >= 2:
-            score += 15
-        ci.score = min(score, 100)
-        ci.details = [
-            f"CI/CD systems: {', '.join(result.ci_cd_systems) or 'none'}",
-            f"Has Dockerfile: {result.has_dockerfile}",
-        ]
-        dimensions.append(ci)
+    def _score_cicd(self, result: AnalysisResult) -> ScoreDimension:
+        score = (60 if result.has_ci_cd else 0) + (25 if result.has_dockerfile else 0) + (15 if len(result.ci_cd_systems) >= 2 else 0)
+        return ScoreDimension("CI/CD & Automation", min(score, 100), [f"Systems: {len(result.ci_cd_systems)}"])
 
-        # 4. Documentation
-        doc = ScoreDimension("Documentation Quality", 0.0)
+    def _score_documentation(self, data: RepoData, result: AnalysisResult) -> ScoreDimension:
         score = 0.0
         readme_scores = {"none": 0, "minimal": 10, "basic": 30, "good": 55, "comprehensive": 70}
         score += readme_scores.get(result.readme_quality, 0)
-        if result.has_contributing:
-            score += 15
-        if result.has_changelog:
-            score += 10
-        if data.has_license:
-            score += 5
-        doc.score = min(score, 100)
-        doc.details = [
-            f"README quality: {result.readme_quality} ({result.readme_length} chars)",
-            f"Has CONTRIBUTING: {result.has_contributing}",
-            f"Has CHANGELOG: {result.has_changelog}",
-            f"Has LICENSE: {data.has_license}",
-        ]
-        dimensions.append(doc)
+        score += 15 if result.has_contributing else 0
+        score += 10 if result.has_changelog else 0
+        score += 5 if data.has_license else 0
+        return ScoreDimension("Documentation Quality", min(score, 100), [f"Quality: {result.readme_quality}"])
 
-        # 5. Project structure
-        ps = ScoreDimension("Project Structure", 0.0)
+    def _score_project_structure(self, data: RepoData, result: AnalysisResult) -> ScoreDimension:
         score = 0.0
         structure_scores = {"flat": 10, "basic": 35, "organized": 65, "well-organized": 90}
         score += structure_scores.get(result.project_structure, 10)
-        if data.has_gitignore:
-            score += 10
-        ps.score = min(score, 100)
-        ps.details = [
-            f"Organization: {result.project_structure}",
-            f"Directories at root: {len(data.root_dirs)}",
-            f"Has .gitignore: {data.has_gitignore}",
-        ]
-        dimensions.append(ps)
+        score += 10 if data.has_gitignore else 0
+        return ScoreDimension("Project Structure", min(score, 100), [f"Org: {result.project_structure}"])
 
-        # 6. Framework sophistication
-        fw = ScoreDimension("Framework & Tooling", 0.0)
+    def _score_frameworks(self, data: RepoData, result: AnalysisResult) -> ScoreDimension:
         score = 0.0
         score += min(len(result.frameworks) * 8, 50)
-        # Linting/formatting tools
         linting = {"eslint", "prettier", "black", "flake8", "mypy", "ruff", "pylint"}
         found_linting = linting & {f.lower() for f in result.frameworks}
-        if found_linting:
-            score += 25
-        if len(data.dependency_content) > 0:
-            score += 15
-        if data.topics:
-            score += 10
-        fw.score = min(score, 100)
-        fw.details = [
-            f"Frameworks detected: {len(result.frameworks)}",
-            f"Linting/formatting tools: {', '.join(found_linting) or 'none'}",
-            f"Package/dependency files: {', '.join(data.dependency_content.keys()) or 'none'}",
-        ]
-        dimensions.append(fw)
+        score += 25 if found_linting else 0
+        score += 15 if len(data.dependency_content) > 0 else 0
+        score += 10 if data.topics else 0
+        return ScoreDimension("Framework & Tooling", min(score, 100), [f"Count: {len(result.frameworks)}"])
 
-        # 7. PR workflow
-        pr = ScoreDimension("PR Workflow", 0.0)
-        score = 0.0
+    def _score_pr_workflow(self, data: RepoData, result: AnalysisResult) -> ScoreDimension:
         total_prs = data.open_prs + data.merged_prs + data.closed_prs
-        if total_prs >= 20:
-            score += 60
-        elif total_prs >= 5:
-            score += 40
-        elif total_prs >= 1:
-            score += 20
-        if result.branch_count >= 3:
-            score += 25
-        elif result.branch_count >= 2:
-            score += 10
-        # Merge ratio
+        score = (60 if total_prs >= 20 else (40 if total_prs >= 5 else 20 if total_prs >= 1 else 0))
+        score += 25 if result.branch_count >= 3 else (10 if result.branch_count >= 2 else 0)
         if total_prs > 0 and data.merged_prs / total_prs > 0.5:
             score += 15
-        pr.score = min(score, 100)
-        pr.details = [
-            f"Total PRs: {total_prs} (merged: {data.merged_prs}, open: {data.open_prs})",
-            f"Branch count: {result.branch_count}",
-        ]
-        dimensions.append(pr)
+        return ScoreDimension("PR Workflow", min(score, 100), [f"PRs: {total_prs}"])
 
-        # 8. Issue tracking
-        it = ScoreDimension("Issue Tracking", 0.0)
-        score = 0.0
+    def _score_issue_tracking(self, data: RepoData, result: AnalysisResult) -> ScoreDimension:
         total_issues = data.open_issues_count + data.closed_issues_count
-        if total_issues >= 20:
-            score += 60
-        elif total_issues >= 5:
-            score += 40
-        elif total_issues >= 1:
-            score += 20
-        # Close rate
+        score = (60 if total_issues >= 20 else (40 if total_issues >= 5 else 20 if total_issues >= 1 else 0))
         if total_issues > 0 and data.closed_issues_count / total_issues > 0.5:
             score += 40
-        it.score = min(score, 100)
-        it.details = [
-            f"Total issues: {total_issues} (closed: {data.closed_issues_count}, open: {data.open_issues_count})",
-        ]
-        dimensions.append(it)
+        return ScoreDimension("Issue Tracking", min(score, 100), [f"Issues: {total_issues}"])
 
-        result.dimensions = dimensions
-
-        # Composite score
-        dim_map = {d.name.split()[0]: d.score for d in dimensions}
+    def _calculate_composite_score(self, result: AnalysisResult) -> None:
         dim_keys = {
             "Commit": "commit_quality",
             "Testing": "testing",
@@ -447,15 +357,15 @@ class MetricsAnalyzer:
             "Issue": "issue_tracking",
         }
         composite = 0.0
-        for dim in dimensions:
+        for dim in result.dimensions:
             for prefix, key in dim_keys.items():
                 if dim.name.startswith(prefix):
                     composite += dim.score * SCORE_WEIGHTS.get(key, 0)
                     break
         result.composite_score = composite
 
-        # Complexity level
-        avg_score = sum(d.score for d in dimensions) / len(dimensions)
+    def _evaluate_complexity(self, result: AnalysisResult) -> None:
+        avg_score = sum(d.score for d in result.dimensions) / len(result.dimensions)
         if avg_score >= 65:
             result.complexity_level = "high"
         elif avg_score >= 35:
