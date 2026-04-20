@@ -240,6 +240,25 @@ def index():
     return render_template("index.html")
 
 
+@app.route("/api/prefix", methods=["POST"])
+def search_by_prefix():
+    body = request.get_json(force=True) or {}
+    prefix = body.get("prefix", "").strip()
+    max_results = min(int(body.get("max_results", 50)), 200)
+    token = body.get("token") or os.getenv("GITHUB_TOKEN", "")
+
+    if not prefix:
+        return jsonify({"error": "Prefixo não informado"}), 400
+
+    from src.collector import GitHubCollector
+    collector = GitHubCollector(token=token)
+    try:
+        repos = collector.get_repos_by_prefix(prefix, max_results=max_results)
+        return jsonify({"repos": repos, "prefix": prefix, "total": len(repos)})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/api/analyze", methods=["POST"])
 def analyze():
     body = request.get_json(force=True) or {}

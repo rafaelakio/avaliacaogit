@@ -495,3 +495,29 @@ class GitHubCollector:
             reverse=True,
         )
         return repos[:max_repos]
+
+    def get_repos_by_prefix(self, prefix: str, max_results: int = 50) -> list[dict]:
+        """Return repos whose name starts with the given prefix, with owner and last update."""
+        result = self._get(
+            "/search/repositories",
+            params={"q": f"{prefix} in:name", "sort": "updated", "order": "desc", "per_page": 100},
+        )
+        repos = []
+        if isinstance(result, dict):
+            for item in result.get("items", []):
+                if not item.get("name", "").lower().startswith(prefix.lower()):
+                    continue
+                repos.append({
+                    "full_name": item["full_name"],
+                    "name": item["name"],
+                    "owner": item["owner"]["login"],
+                    "pushed_at": item.get("pushed_at"),
+                    "updated_at": item.get("updated_at"),
+                    "description": item.get("description") or "",
+                    "language": item.get("language") or "",
+                    "stars": item.get("stargazers_count", 0),
+                    "private": item.get("private", False),
+                })
+                if len(repos) >= max_results:
+                    break
+        return repos

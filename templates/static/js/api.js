@@ -49,6 +49,19 @@ class APIClient {
   static exportCsv(taskId) {
     return `/api/export/${taskId}/csv`;
   }
+
+  static async searchByPrefix(prefix, token, maxResults = 50) {
+    const response = await fetch('/api/prefix', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prefix, token: token || '', max_results: maxResults }),
+    });
+    if (!response.ok) {
+      const err = await response.json().catch(() => ({}));
+      throw new Error(err.error || `HTTP ${response.status}`);
+    }
+    return await response.json();
+  }
 }
 
 export default APIClient;

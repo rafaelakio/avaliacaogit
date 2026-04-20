@@ -55,6 +55,7 @@
       <button class="mode-tab active" data-mode="repo">Repositório</button>
       <button class="mode-tab" data-mode="user">Perfil de Usuário</button>
       <button class="mode-tab" data-mode="contributions">Contribuições</button>
+      <button class="mode-tab" data-mode="prefix">Por Prefixo</button>
     </div>
 
     <div class="input-row">
@@ -115,6 +116,33 @@
       <div class="loading-note">
         A análise faz múltiplas chamadas à API do GitHub e pode levar <strong>1 a 3 minutos</strong>.
         Os logs de <code style="font-size: 11px; color: var(--blue)">/api/status</code> a cada segundo confirmam que está funcionando.
+      </div>
+    </div>
+  </section>
+
+  <!-- PREFIX RESULTS SECTION -->
+  <section id="prefix-section" style="display: none">
+    <div class="form-card" style="margin-top: 16px">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px">
+        <span id="prefix-summary" style="color:var(--muted); font-size:13px"></span>
+        <div style="display:flex; gap:8px">
+          <button class="btn-export btn-json" id="btn-prefix-csv">⬇ CSV</button>
+          <button class="btn-export btn-reset" id="btn-prefix-reset">↩ Nova busca</button>
+        </div>
+      </div>
+      <div style="overflow-x:auto">
+        <table id="prefix-table" style="width:100%; border-collapse:collapse; font-size:13px">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border); text-align:left; color:var(--muted)">
+              <th style="padding:8px 12px">Repositório</th>
+              <th style="padding:8px 12px">Proprietário</th>
+              <th style="padding:8px 12px">Última atualização</th>
+              <th style="padding:8px 12px">Linguagem</th>
+              <th style="padding:8px 12px">Descrição</th>
+            </tr>
+          </thead>
+          <tbody id="prefix-table-body"></tbody>
+        </table>
       </div>
     </div>
   </section>

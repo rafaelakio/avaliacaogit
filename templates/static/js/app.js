@@ -7,6 +7,7 @@
  */
 
 import AnalysisController from './analysis.js';
+import APIClient from './api.js';
 import State from './state.js';
 import UIManager from './ui.js';
 
@@ -57,11 +58,15 @@ class App {
     const inp = document.getElementById('main-input');
     const maxG = document.getElementById('max-repos-group');
 
-    inp.placeholder = mode === 'repo'
-      ? 'https://github.com/owner/repo'
-      : 'https://github.com/owner  ou  owner';
+    if (mode === 'repo') {
+      inp.placeholder = 'https://github.com/owner/repo';
+    } else if (mode === 'prefix') {
+      inp.placeholder = 'Prefixo do repositório (ex: poc-)';
+    } else {
+      inp.placeholder = 'https://github.com/owner  ou  owner';
+    }
 
-    maxG.style.display = mode !== 'repo' ? 'block' : 'none';
+    maxG.style.display = (mode !== 'repo' && mode !== 'prefix') ? 'block' : 'none';
   }
 
   /**
@@ -102,6 +107,16 @@ class App {
     document.getElementById('btn-reset').addEventListener('click', () => {
       this.resetForm();
     });
+
+    document.getElementById('btn-prefix-csv').addEventListener('click', () => {
+      this._exportPrefixCsv();
+    });
+
+    document.getElementById('btn-prefix-reset').addEventListener('click', () => {
+      document.getElementById('prefix-section').style.display = 'none';
+      document.getElementById('main-input').value = '';
+      document.getElementById('main-input').focus();
+    });
   }
 
   /**
@@ -133,7 +148,86 @@ class App {
       return;
     }
 
+    if (mode === 'prefix') {
+      this.runPrefixSearch(input, token);
+      return;
+    }
+
     this.analysis.startAnalysis(mode, input, !useAI, token, maxRepos, anthropicKey);
+  }
+
+  async runPrefixSearch(prefix, token) {
+    if (!prefix.trim()) {
+      document.getElementById('main-input').focus();
+      return;
+    }
+
+    const btn = document.getElementById('analyze-btn');
+    btn.disabled = true;
+    btn.textContent = 'Buscando…';
+
+    document.getElementById('prefix-section').style.display = 'none';
+    document.getElementById('error-section').style.display = 'none';
+
+    try {
+      const data = await APIClient.searchByPrefix(prefix.trim(), token);
+      this._renderPrefixResults(data);
+    } catch (err) {
+      document.getElementById('error-section').style.display = '';
+      document.getElementById('error-msg').textContent = err.message;
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Analisar';
+    }
+  }
+
+  _renderPrefixResults(data) {
+    const fmt = iso => {
+      if (!iso) return '—';
+      const d = new Date(iso);
+      return d.toLocaleDateString('pt-BR') + ' ' + d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+    };
+
+    document.getElementById('prefix-summary').textContent =
+      `${data.total} repositório(s) encontrado(s) com prefixo "${data.prefix}"`;
+
+    const tbody = document.getElementById('prefix-table-body');
+    tbody.innerHTML = '';
+
+    if (!data.repos.length) {
+      tbody.innerHTML = '<tr><td colspan="5" style="padding:16px;text-align:center;color:var(--muted)">Nenhum repositório encontrado.</td></tr>';
+    } else {
+      for (const r of data.repos) {
+        const tr = document.createElement('tr');
+        tr.style.borderBottom = '1px solid var(--border)';
+        tr.innerHTML = `
+          <td style="padding:8px 12px; font-weight:500">${r.full_name}</td>
+          <td style="padding:8px 12px">${r.owner}</td>
+          <td style="padding:8px 12px; white-space:nowrap">${fmt(r.pushed_at || r.updated_at)}</td>
+          <td style="padding:8px 12px">${r.language || '—'}</td>
+          <td style="padding:8px 12px; color:var(--muted)">${r.description || '—'}</td>
+        `;
+        tbody.appendChild(tr);
+      }
+    }
+
+    this._prefixData = data;
+    document.getElementById('prefix-section').style.display = '';
+  }
+
+  _exportPrefixCsv() {
+    if (!this._prefixData) return;
+    const rows = [['Repositório', 'Proprietário', 'Última atualização', 'Linguagem', 'Descrição']];
+    for (const r of this._prefixData.repos) {
+      const dt = r.pushed_at || r.updated_at || '';
+      rows.push([r.full_name, r.owner, dt, r.language || '', r.description || '']);
+    }
+    const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `repos_${this._prefixData.prefix}.csv`;
+    a.click();
   }
 
   /**
@@ -147,6 +241,8 @@ class App {
     keyInput.value = '';
     keyInput.style.display = 'none';
     document.getElementById('sticky-results-bar').style.display = 'none';
+    document.getElementById('prefix-section').style.display = 'none';
+    this._prefixData = null;
     this.analysis.resetForm();
   }
 }
