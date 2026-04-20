@@ -1,6 +1,14 @@
+import os
 import re
 
-GITHUB_API_BASE = "https://api.github.com"
+GITHUB_BASE_URL = os.getenv("GITHUB_BASE_URL", "https://github.com").rstrip("/")
+_custom_api = os.getenv("GITHUB_API_URL", "")
+if _custom_api:
+    GITHUB_API_BASE = _custom_api.rstrip("/")
+elif GITHUB_BASE_URL == "https://github.com":
+    GITHUB_API_BASE = "https://api.github.com"
+else:
+    GITHUB_API_BASE = f"{GITHUB_BASE_URL}/api/v3"
 MAX_COMMITS = 300
 COMMITS_PER_PAGE = 100
 

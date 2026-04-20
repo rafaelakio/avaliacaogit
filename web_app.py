@@ -143,7 +143,8 @@ def _run_user_task(task_id: str, user_input: str, max_repos: int, no_ai: bool, t
             full_name = repo["full_name"]
             _set_progress(task_id, f"[{i}/{len(repos)}] Analisando {full_name}...")
             try:
-                repo_data = collector.collect_all(f"https://github.com/{full_name}")
+                from src.config import GITHUB_BASE_URL
+                repo_data = collector.collect_all(f"{GITHUB_BASE_URL}/{full_name}")
                 if repo_data.error:
                     failed += 1
                 else:
@@ -200,7 +201,8 @@ def _run_contributions_task(task_id: str, user_input: str, max_repos: int, no_ai
             full_name = repo["full_name"]
             _set_progress(task_id, f"[{i}/{len(repos)}] Analisando {full_name}...")
             try:
-                repo_data = collector.collect_all(f"https://github.com/{full_name}")
+                from src.config import GITHUB_BASE_URL
+                repo_data = collector.collect_all(f"{GITHUB_BASE_URL}/{full_name}")
                 if repo_data.error:
                     failed += 1
                 else:

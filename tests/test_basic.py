@@ -39,9 +39,10 @@ class TestParseGithubUrl:
         assert owner == "owner"
         assert repo == "repo"
 
-    def test_invalid_url_raises(self):
-        with pytest.raises(ValueError):
-            parse_github_url("https://gitlab.com/owner/repo")
+    def test_enterprise_url(self):
+        owner, repo = parse_github_url("https://github.mycompany.com/owner/repo")
+        assert owner == "owner"
+        assert repo == "repo"
 
     def test_invalid_url_no_repo(self):
         with pytest.raises(ValueError):

@@ -217,7 +217,8 @@ def run_user_mode(args) -> int:
                       console=console, transient=True) as p:
             p.add_task(f"[{i}/{len(repos)}] Analisando {full_name}...", total=None)
             try:
-                repo_url = f"https://github.com/{full_name}"
+                from src.config import GITHUB_BASE_URL
+                repo_url = f"{GITHUB_BASE_URL}/{full_name}"
                 repo_data = collector.collect_all(repo_url)
                 if repo_data.error:
                     console.print(f"  [yellow]⚠[/yellow] {full_name}: {repo_data.error}")
@@ -269,19 +270,18 @@ def run_user_mode(args) -> int:
 def main() -> int:
     args = parse_args()
 
-    # Detect user profile URL passed as positional arg (e.g. https://github.com/rafaelakio)
+    # Detect user profile URL passed as positional arg (any GitHub hostname)
     if args.url and not args.user:
         import re
-        # If the URL has only one path segment after github.com, treat it as a user profile
-        if re.search(r"github\.com[/:]([^/\s]+)$", args.url.rstrip("/")):
-            username_match = re.search(r"github\.com[/:]([^/\s]+)$", args.url.rstrip("/"))
-            if username_match:
-                console.print(
-                    f"[cyan]ℹ[/cyan] '{args.url}' parece ser um perfil de usuário.\n"
-                    f"  Iniciando análise de todos os repositórios de [bold]@{username_match.group(1)}[/bold]...\n"
-                )
-                args.user = args.url
-                args.url = None
+        # Single path segment after any host → treat as user profile
+        username_match = re.search(r"https?://[^/]+/([^/\s]+)$", args.url.rstrip("/"))
+        if username_match:
+            console.print(
+                f"[cyan]ℹ[/cyan] '{args.url}' parece ser um perfil de usuário.\n"
+                f"  Iniciando análise de todos os repositórios de [bold]@{username_match.group(1)}[/bold]...\n"
+            )
+            args.user = args.url
+            args.url = None
 
     if args.user:
         return run_user_mode(args)

@@ -10,7 +10,7 @@ from urllib.parse import urlparse
 
 import requests
 
-from .config import GITHUB_API_BASE, MAX_COMMITS, COMMITS_PER_PAGE
+from .config import GITHUB_API_BASE, GITHUB_BASE_URL, MAX_COMMITS, COMMITS_PER_PAGE
 
 
 @dataclass
@@ -66,17 +66,23 @@ class RepoData:
 
 
 def parse_github_url(url: str) -> tuple[str, str]:
-    """Extract owner and repo name from a GitHub repository URL."""
+    """Extract owner and repo name from a GitHub repository URL (github.com or enterprise)."""
     url = url.strip().rstrip("/")
-    m = re.search(r"github\.com[/:]([^/]+)/([^/\s.]+?)(?:\.git)?$", url)
-    if m:
-        return m.group(1), m.group(2)
+    m = re.search(r"[/:]([^/:][^/]*)/([^/\s.]+?)(?:\.git)?$", url)
+    # Must have at least a hostname-like segment before owner/repo
+    hostname_m = re.search(r"https?://([^/]+)/([^/]+)/([^/\s.]+?)(?:\.git)?$", url)
+    if hostname_m:
+        return hostname_m.group(2), hostname_m.group(3)
+    # git@ SSH form: git@hostname:owner/repo.git
+    ssh_m = re.search(r"git@[^:]+:([^/]+)/([^/\s.]+?)(?:\.git)?$", url)
+    if ssh_m:
+        return ssh_m.group(1), ssh_m.group(2)
     # Detect user profile URL and provide a helpful error
-    profile = re.search(r"github\.com[/:]([^/\s]+)$", url)
+    profile = re.search(r"https?://[^/]+/([^/\s]+)$", url)
     if profile:
         raise ValueError(
             f"'{url}' parece ser um perfil de usuário, não um repositório.\n"
-            f"  • Para analisar um repositório específico: https://github.com/{profile.group(1)}/nome-do-repo\n"
+            f"  • Para analisar um repositório específico: {url}/nome-do-repo\n"
             f"  • Para analisar todos os repos do usuário, use a flag --user:\n"
             f"    python main.py --user {profile.group(1)}"
         )
@@ -87,13 +93,18 @@ def parse_github_url(url: str) -> tuple[str, str]:
 
 
 def parse_user_url(url: str) -> str:
-    """Extract username from a GitHub profile URL or plain username."""
+    """Extract username from a GitHub profile URL (any hostname) or plain username."""
     url = url.strip().rstrip("/")
-    m = re.search(r"github\.com[/:]([^/\s]+)$", url)
+    # https://any-host/username
+    m = re.search(r"https?://[^/]+/([^/\s]+)$", url)
     if m:
         return m.group(1)
-    # Accept plain username without URL
-    if re.match(r"^[a-zA-Z0-9](?:[a-zA-Z0-9]|-(?=[a-zA-Z0-9])){0,38}$", url):
+    # git@host:username (no repo)
+    ssh_m = re.search(r"git@[^:]+:([^/\s]+)$", url)
+    if ssh_m:
+        return ssh_m.group(1)
+    # Accept plain username (enterprise allows underscores, dots, and other LDAP chars)
+    if re.match(r"^[a-zA-Z0-9][a-zA-Z0-9._-]{0,38}$", url):
         return url
     raise ValueError(f"Não foi possível extrair o usuário GitHub de: {url}")
 

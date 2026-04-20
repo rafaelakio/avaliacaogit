@@ -13,9 +13,14 @@ def test_parse_github_url_valid():
 def test_parse_github_url_invalid():
     with pytest.raises(ValueError, match="parece ser um perfil de usuário"):
         parse_github_url("https://github.com/octocat")
-    
+
     with pytest.raises(ValueError, match="URL inválida"):
-        parse_github_url("https://notgithub.com/owner/repo")
+        parse_github_url("not-a-url")
+
+def test_parse_github_url_enterprise():
+    owner, repo = parse_github_url("https://github.mycompany.com/owner/repo")
+    assert owner == "owner"
+    assert repo == "repo"
 
 def test_parse_user_url():
     assert parse_user_url("https://github.com/torvalds") == "torvalds"
