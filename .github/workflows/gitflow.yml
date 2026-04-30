@@ -1,0 +1,67 @@
+name: GitFlow Validation
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  push:
+    branches: [main, develop]
+
+jobs:
+  validate-branch-name:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        
+      - name: Validate Branch Name
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
+        run: |
+          echo "Validating branch: $BRANCH_NAME"
+          
+          if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "develop" || "$BRANCH_NAME" == "master" ]]; then
+            echo "Branch $BRANCH_NAME is allowed"
+            exit 0
+          fi
+          
+          if [[ "$BRANCH_NAME" =~ ^(feature|bugfix|hotfix|release)/.+$ ]]; then
+            echo "Branch $BRANCH_NAME follows GitFlow pattern"
+          else
+            echo "Branch $BRANCH_NAME does not follow GitFlow pattern"
+            echo "Expected patterns: feature/*, bugfix/*, hotfix/*, release/*"
+            exit 1
+          fi
+
+  validate-merge-target:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - name: Validate Merge Target
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          echo "PR: $HEAD_BRANCH → $BASE_BRANCH"
+          
+          if [[ "$HEAD_BRANCH" =~ ^(feature|bugfix)/.+$ ]]; then
+            if [[ "$BASE_BRANCH" != "develop" ]]; then
+              echo "Feature/bugfix branches should merge to develop, not $BASE_BRANCH"
+              exit 1
+            fi
+          fi
+          
+          if [[ "$HEAD_BRANCH" =~ ^hotfix/.+$ ]]; then
+            if [[ "$BASE_BRANCH" != "main" && "$BASE_BRANCH" != "master" ]]; then
+              echo "Hotfix branches should merge to main, not $BASE_BRANCH"
+              exit 1
+            fi
+          fi
+          
+          if [[ "$HEAD_BRANCH" =~ ^release/.+$ ]]; then
+            if [[ "$BASE_BRANCH" != "main" && "$BASE_BRANCH" != "master" ]]; then
+              echo "Release branches should merge to main, not $BASE_BRANCH"
+              exit 1
+            fi
+          fi
+          
+          echo "Merge target validation passed"
