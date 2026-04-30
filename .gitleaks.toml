@@ -1,0 +1,13 @@
+[allowlist]
+  description = "Allowlist for known safe patterns"
+  paths = [
+    '''\.env\.example$''',
+    '''terraform\.tfvars\.example$''',
+    '''.*test.*''',
+    '''.*\.sample$'''
+  ]
+  regexes = [
+    '''AWS_ACCESS_KEY_ID=test''',
+    '''AWS_SECRET_ACCESS_KEY=test''',
+    '''local-dev-secret-change-me'''
+  ]
