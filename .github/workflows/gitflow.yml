@@ -14,8 +14,9 @@ jobs:
         uses: actions/checkout@v4
         
       - name: Validate Branch Name
+        env:
+          BRANCH_NAME: ${{ github.head_ref || github.ref_name }}
         run: |
-          BRANCH_NAME="${{ github.head_ref || github.ref_name }}"
           echo "Validating branch: $BRANCH_NAME"
           
           if [[ "$BRANCH_NAME" == "main" || "$BRANCH_NAME" == "develop" || "$BRANCH_NAME" == "master" ]]; then
@@ -36,10 +37,10 @@ jobs:
     if: github.event_name == 'pull_request'
     steps:
       - name: Validate Merge Target
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
         run: |
-          BASE_BRANCH="${{ github.base_ref }}"
-          HEAD_BRANCH="${{ github.head_ref }}"
-          
           echo "PR: $HEAD_BRANCH → $BASE_BRANCH"
           
           if [[ "$HEAD_BRANCH" =~ ^(feature|bugfix)/.+$ ]]; then
